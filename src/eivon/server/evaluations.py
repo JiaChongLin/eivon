@@ -504,7 +504,9 @@ class Evaluations:
         return {
             "summary": str(value.get("summary", ""))[:12_000],
             "patterns": patterns[:20] if isinstance(patterns, list) else [],
-            "suggestions": suggestions[:20] if isinstance(suggestions, list) else [],
+            "suggestions": [item for item in suggestions[:20] if isinstance(item, dict)]
+            if isinstance(suggestions, list)
+            else [],
             "structured": True,
         }
 
