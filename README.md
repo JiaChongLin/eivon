@@ -18,7 +18,7 @@ Console screenshot from the deterministic browser acceptance fixture. See the [c
 - Typed tool execution with JSON Schema validation, timeouts, result budgets, write approvals and outbound host allowlists.
 - Durable Runs with ordered events, cancellation, approval/input waiting, resume support and worker leases.
 - Workspace-scoped resources, roles, API keys, CSRF-protected sessions, encrypted credentials and audit events.
-- A dark management console with setup, overview, resource authoring, Agent publishing, Playground, Run history, Knowledge indexing/search and workspace Members.
+- A dark management console with setup, overview, resource authoring, Agent publishing, Playground, Run history, Knowledge indexing/search and workspace administration (switching, members, credentials, API keys and audit).
 - A lightweight evaluation loop for JSON test sets, batch Runs and exact/contains/nonempty result scoring.
 - SQLite for a zero-dependency local instance and PostgreSQL for deployment.
 - A deployment-time Python extension SDK; HTTP tools are configured with explicit server allowlists.
@@ -58,13 +58,13 @@ The default Compose service runs an inline worker. For a separate worker, set `E
 4. Open **Agents → New resource**, select the published model and prompt, and publish the Agent.
 5. Open **Playground**, select the published Agent, send a message and watch the ordered execution trace. If a tool requires approval, the run pauses with an approval card and resumes from the same checkpoint.
 
-For a real provider, create an encrypted Credential through the API, reference its ID from a model resource, and add the model endpoint host to `EIVON_OUTBOUND_HOSTS`. Secrets are never returned by the credential API.
+For a real provider, create an encrypted Credential in Settings or through the API, reference its ID from a model resource, and add the model endpoint host to `EIVON_OUTBOUND_HOSTS`. Secrets are never returned by the credential API.
 
 ## Public API shape
 
 The FastAPI schema is available at `/docs`. Important groups are:
 
-- `/api/v1/setup`, `/auth/*`, `/members`, `/api-keys`, `/credentials`
+- `/api/v1/setup`, `/auth/*`, `/workspaces`, `/members`, `/api-keys`, `/credentials`, `/audit-events`
 - `/api/v1/resources`, `/resources/{id}/publish`, `/resources/{id}/versions`
 - `/api/v1/sessions`, `/runs`, `/runs/{id}/events`, `/runs/{id}/cancel`, `/runs/{id}/resume`
 - `/api/v1/evaluations`, `/evaluations/{id}/run`, `/evaluation-jobs/{id}`
@@ -95,3 +95,5 @@ Apache-2.0. See [LICENSE](LICENSE).
 Workflow authoring, branching, input/approval waits and execution inspection are covered in the [workflow guide](docs/workflows.md). The console includes a structured editor and a Run history inspector; [delivery status](docs/DELIVERY.md) tracks capabilities still pending.
 
 The [resource guide](docs/resources.md) covers capability authoring, immutable releases, specification comparisons, rollback and archive/restore.
+
+See [workspace administration](docs/administration.md) for scope selection, member roles, credential rotation and key revocation.

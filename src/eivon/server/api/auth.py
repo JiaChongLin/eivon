@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hmac
+
 from fastapi import APIRouter, Request, Response
 from pydantic import Field, field_validator
 from sqlalchemy import delete, select
@@ -39,6 +41,11 @@ class MemberInput(Contract):
     name: str = Field(min_length=1, max_length=120)
     password: str | None = Field(default=None, max_length=1024)
     role: str = "editor"
+
+    @field_validator("email")
+    @classmethod
+    def email_syntax(cls, value):
+        return LoginInput.email_syntax(value)
 
 
 class RoleInput(Contract):
@@ -114,9 +121,24 @@ def me(request: Request, identity: Identity):
     return result
 
 
+@router.get("/auth/session")
+def session_csrf(request: Request):
+    return {
+        "csrf_token": request.app.state.security.session_csrf(
+            request.cookies.get("eivon_session", "")
+        )
+    }
+
+
 @router.post("/auth/logout", status_code=204)
-def logout(request: Request, response: Response, identity: Identity):
-    request.app.state.security.logout(identity)
+def logout(request: Request, response: Response):
+    # A revoked workspace membership must not prevent invalidating a browser session.
+    raw = request.cookies.get("eivon_session", "")
+    if raw:
+        security = request.app.state.security
+        if not hmac.compare_digest(request.headers.get("x-csrf-token", ""), security.csrf(raw)):
+            raise ServiceError("csrf_failed", "Refresh the page and try again", 403)
+        security.logout_session(raw)
     response.delete_cookie("eivon_session", path="/")
 
 
@@ -129,6 +151,21 @@ def create_workspace(payload: WorkspaceInput, request: Request, identity: Identi
         db.flush()
         db.add(Member(workspace_id=item.id, user_id=identity.user_id, role="owner"))
         audit(db, identity, "workspace.create", item.id)
+        return row_dict(item)
+
+
+@router.patch("/workspaces/{workspace_id}")
+def rename_workspace(
+    workspace_id: str, payload: WorkspaceInput, request: Request, identity: Identity
+):
+    identity.require("admin")
+    if workspace_id != identity.workspace_id:
+        raise ServiceError("not_found", "Workspace not found", 404)
+    with request.app.state.database.transaction() as db:
+        item = db.get(Workspace, workspace_id)
+        item.name = payload.name
+        audit(db, identity, "workspace.rename", workspace_id)
+        db.flush()
         return row_dict(item)
 
 

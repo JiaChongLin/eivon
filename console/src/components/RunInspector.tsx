@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api } from "../api";
+import { api, downloadArtifact } from "../api";
 import type { Run } from "../api";
 
 type RunDetail = Run & { checkpoint?: { waiting?: Record<string, unknown> }; snapshot?: { root: { name: string }; resources: Record<string, { name: string; version: number }> } };
@@ -67,7 +67,7 @@ export function RunInspector({ runId, onSettled }: { runId: string; onSettled?: 
     {run?.status === "waiting_approval" && <div className="approval-card"><h4>Approve {String(waiting?.tool || "tool execution")}</h4><pre>{JSON.stringify(waiting?.arguments, null, 2)}</pre><div><button className="button" disabled={busy} onClick={() => void act("resume", true)}>Approve</button><button className="text-button" disabled={busy} onClick={() => void act("resume", false)}>Decline</button></div></div>}
     {run && !["completed", "failed", "cancelled"].includes(run.status) && <button className="text-button" disabled={busy} onClick={() => void act("cancel")}>Cancel run</button>}
     {run && !stopped.has(run.status) && liveText && <div aria-live="polite"><h4>Live response</h4><pre>{liveText}</pre></div>}
-    {artifacts.length > 0 && <section aria-label="Generated files"><h4>Generated files</h4><ul>{artifacts.map((file) => <li key={file.id}><a href={`/api/v1/artifacts/${encodeURIComponent(file.id)}/download`} download>{file.name}</a> <small>{file.size} bytes</small></li>)}</ul></section>}
+    {artifacts.length > 0 && <section aria-label="Generated files"><h4>Generated files</h4><ul>{artifacts.map((file) => <li key={file.id}><a href={`/api/v1/artifacts/${encodeURIComponent(file.id)}/download`} download onClick={(event) => { event.preventDefault(); void downloadArtifact(file.id, file.name).catch((e) => setError(e.message)); }}>{file.name}</a> <small>{file.size} bytes</small></li>)}</ul></section>}
     {run?.output && <div><h4>Output</h4><pre data-testid="run-output">{typeof run.output.text === "string" ? run.output.text : JSON.stringify(run.output, null, 2)}</pre></div>}
     <details><summary>Release dependencies · v{run?.resource_version}</summary><ul>{Object.entries(run?.snapshot?.resources || {}).map(([key, item]) => <li key={key}>{item.name} · v{item.version}</li>)}</ul></details>
     <details open><summary>Execution timeline · {events.length} events</summary><ol className="run-events">{events.map((event) => <li key={event.sequence}><strong>{event.type}</strong><pre>{JSON.stringify(event.data, null, 2)}</pre></li>)}</ol></details>

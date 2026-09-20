@@ -15,7 +15,7 @@ Status: runnable foundation release, still pre-1.0. Completed capabilities and o
 - [x] Knowledge ingestion, lexical retrieval and source metadata; semantic citations and connection management remain
 - [x] Evaluation sets, batch Runs, deterministic result scoring and release selection; side-by-side version comparison and reviewed improvement suggestions remain
 - [x] Complete console: setup, dashboard, agents, resources, playground, chat
-- [x] Complete console: runs, knowledge, evaluations, approvals, members, settings (richer administration and version comparison remain)
+- [x] Complete console: runs, knowledge, evaluations, approvals, members, settings (evaluation version comparison remains)
 - [x] Workflow execution and structured editor for Input/Tool/Prompt/Condition, typed bindings, schema validation, cancellation, persistent branching and run inspection
 - [x] HTTP, trusted Python and Streamable HTTP MCP tool integration
 - [x] Generic starter examples and two distinct synthetic domain bundles
@@ -32,12 +32,12 @@ Status: runnable foundation release, still pre-1.0. Completed capabilities and o
 
 - [x] Agent resource authoring, multi-turn chat, file approval/download, conversation recovery and cancellation browser E2E
 - [x] Resource publication, comparison, activation rollback, archive/restore, conflicts and read-only role browser E2E
-- [ ] Full workspace administration and workspace switching browser E2E
+- [x] Workspace switching, create/rename, scoped file delivery and resource/conversation isolation browser E2E
 - [ ] Isolated extension runners; Python imports currently remain trusted deployment code
 - [ ] Knowledge connection management and semantic retrieval
 - [ ] Side-by-side evaluation comparison and reviewed improvement suggestions
 - [x] Resource release rollback and immutable version inspection user flows
-- [ ] Remaining member, credential, API-key and workspace administration user flows
+- [x] Member add/role/remove, credential rotation, API-key issue/revoke and workspace audit user flows
 - [ ] High-load stress measurements and production upgrade/restore rehearsal
 - [ ] Graph workflow canvas if included in the stable-release scope
 
@@ -68,3 +68,7 @@ Verification for the workflow completion slice:
 2026-09-20: Added searchable and paginated resource management, archived-resource discovery, per-type authoring buffers, model credential selection, release snapshots and specification comparisons, activation rollback, draft copy and archive/restore. Publication saves the current editor buffer; stale validation/editing is rejected. Added backend rollback/permission tests and browser release-management scenarios.
 
 Resource-management verification: `.venv/bin/pytest -q` passed 48 tests (two dependency deprecation warnings); `.venv/bin/ruff check src tests scripts examples` and `npm run build --prefix console` passed. `EIVON_TEST_CHROME='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' npm run test:e2e --prefix console` passed all 5 browser scenarios together against the disposable server. No hosted CI or live connector execution was claimed by these checks.
+
+2026-09-20: Added workspace selection/create/rename, member role/removal controls, credential rotation, configurable API key expiry/permissions/revocation and paginated audit inspection. Console requests and generated-file downloads carry explicit workspace scope; switching resets page state and cancels pending requests. API-key identity lists only its own workspace. Removed members can discover session CSRF and sign out without workspace access.
+
+Workspace-administration verification: `.venv/bin/pytest -q` passed 51 tests (two dependency deprecation warnings and a non-failing cache write warning in the restricted test invocation); `RUFF_CACHE_DIR=/tmp/eivon-ruff .venv/bin/ruff check src tests scripts examples` and `npm run build --prefix console` passed. `EIVON_TEST_CHROME='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' npm run test:e2e --prefix console` passed all 7 browser scenarios against a disposable server, including non-default-workspace Unicode file download, resource/conversation isolation and membership removal. Hosted CI and live provider checks remain unperformed.

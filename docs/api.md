@@ -4,7 +4,7 @@ Eivon exposes a versioned JSON API under `/api/v1`. FastAPI publishes the genera
 
 ## Request identity
 
-Browser sessions use an HttpOnly `eivon_session` cookie. Setup and login return a CSRF token; send it as `x-csrf-token` for cookie based mutations. Automation can use a workspace-scoped `Authorization: Bearer eiv_...` API key. API keys are shown only once at creation.
+Browser sessions use an HttpOnly `eivon_session` cookie. Setup and login return a CSRF token; send it as `x-csrf-token` for cookie based mutations. Automation can use a workspace-scoped `Authorization: Bearer eiv_...` API key. API keys are shown only once at creation. Send `x-eivon-workspace` to explicitly select a browser session workspace; bearer keys cannot select a different workspace. The console sends this header for all scoped requests, including downloads. See [workspace administration](administration.md) for membership, credentials, key revocation, audit and session recovery.
 
 ## Resource lifecycle
 

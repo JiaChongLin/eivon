@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Query, Request
 
 from .dependencies import Identity
 
@@ -26,3 +26,28 @@ def stats(request: Request, identity: Identity):
             select(func.count()).select_from(Run).where(Run.workspace_id == identity.workspace_id)
         )
     return {"name": "Eivon", "version": "0.1.0", "resources": resources, "runs": runs}
+
+
+@router.get("/audit-events")
+def audit_events(
+    request: Request,
+    identity: Identity,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(25, ge=1, le=200),
+):
+    from sqlalchemy import func, select
+
+    from ..db import AuditEvent, row_dict
+
+    identity.require("admin")
+    with request.app.state.database.transaction() as db:
+        filters = [AuditEvent.workspace_id == identity.workspace_id]
+        total = db.scalar(select(func.count()).select_from(AuditEvent).where(*filters))
+        rows = db.scalars(
+            select(AuditEvent)
+            .where(*filters)
+            .order_by(AuditEvent.created_at.desc(), AuditEvent.id)
+            .offset(offset)
+            .limit(limit)
+        )
+        return {"items": [row_dict(row) for row in rows], "total": total}

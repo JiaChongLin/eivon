@@ -237,11 +237,14 @@ class Security:
     def identity(self, principal: Principal) -> dict:
         with self.database.transaction() as db:
             user = db.get(User, principal.user_id)
-            memberships = db.execute(
+            query = (
                 select(Workspace, Member.role)
                 .join(Member, Member.workspace_id == Workspace.id)
                 .where(Member.user_id == user.id)
-            ).all()
+            )
+            if principal.api_key:
+                query = query.where(Workspace.id == principal.workspace_id)
+            memberships = db.execute(query.order_by(Workspace.name, Workspace.id)).all()
             return {
                 "user": row_dict(user, ("password_hash",)),
                 "workspace_id": principal.workspace_id,
@@ -252,9 +255,24 @@ class Security:
                 ],
             }
 
-    def logout(self, principal: Principal) -> None:
+    def session_csrf(self, raw_token: str) -> str:
         with self.database.transaction() as db:
-            db.execute(delete(Token).where(Token.id == principal.token_id))
+            token = db.scalar(
+                select(Token).where(
+                    Token.digest == digest(raw_token),
+                    Token.kind == "session",
+                    Token.expires_at > time.time(),
+                )
+            )
+            if token is None:
+                raise ServiceError("unauthorized", "Sign in to continue", 401)
+        return self.csrf(raw_token)
+
+    def logout_session(self, raw_token: str) -> None:
+        with self.database.transaction() as db:
+            db.execute(
+                delete(Token).where(Token.digest == digest(raw_token), Token.kind == "session")
+            )
 
     def create_api_key(
         self, principal: Principal, name: str, permissions: list[str], days: int

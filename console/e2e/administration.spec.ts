@@ -1,0 +1,133 @@
+import { readFile } from "node:fs/promises";
+import { expect, test } from "@playwright/test";
+import { signInThroughUI } from "./auth";
+
+test("manage workspaces, credentials and keys; keep resources, conversations and downloads scoped", async ({ page, playwright }) => {
+  const identity = await signInThroughUI(page);
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  const first = identity.workspace_id;
+  await page.getByRole("button", { name: "10 Settings", exact: true }).click();
+  const create = page.getByRole("form", { name: "Create workspace", exact: true });
+  await create.getByLabel("Name", { exact: true }).fill("Second workspace");
+  await create.getByRole("button", { name: "Create workspace", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Overview", exact: true })).toBeVisible();
+  const second = await page.getByLabel("Current workspace").inputValue();
+  expect(second).not.toBe(first);
+  await page.getByRole("button", { name: "10 Settings", exact: true }).click();
+  const rename = page.getByRole("form", { name: "Rename workspace", exact: true });
+  await rename.getByLabel("Name", { exact: true }).fill("Research workspace");
+  await rename.getByRole("button", { name: "Rename workspace", exact: true }).click();
+  await expect(page.getByLabel("Current workspace").locator("option:checked")).toHaveText("Research workspace");
+  const credential = page.getByRole("form", { name: "Credential editor" });
+  await credential.getByLabel("Credential name").fill("Test provider");
+  await credential.getByLabel("Secret value").fill("synthetic-original-secret");
+  await credential.getByRole("button", { name: "Save credential", exact: true }).click();
+  await expect(page.getByRole("status")).toHaveText("Credential saved");
+  await credential.getByRole("button", { name: "Rotate Test provider", exact: true }).click();
+  await credential.getByLabel("Secret value").fill("synthetic-rotated-secret");
+  await credential.getByRole("button", { name: "Save rotation", exact: true }).click();
+  await expect(page.getByRole("status")).toHaveText("Credential rotated");
+  await expect(credential.getByLabel("Secret value")).toHaveValue("");
+  const keys = page.getByRole("region", { name: "API key management" });
+  await keys.getByLabel("Key name").fill("Temporary integration");
+  await keys.getByLabel("Expires in days").fill("1");
+  await keys.getByRole("button", { name: "Create API key", exact: true }).click();
+  const secret = await keys.getByTestId("api-key-secret").textContent();
+  const client = await playwright.request.newContext({ baseURL: "http://127.0.0.1:18787", extraHTTPHeaders: { authorization: `Bearer ${secret}` } });
+  try {
+    const me = await (await client.get("/api/v1/auth/me")).json();
+    expect(me.workspaces.map((item: { id: string }) => item.id)).toEqual([second]);
+    expect((await client.get("/api/v1/resources", { headers: { "x-eivon-workspace": first } })).status()).toBe(403);
+    await keys.getByRole("article", { name: "Temporary integration" }).getByRole("button", { name: "Revoke key" }).click();
+    await expect(keys.getByTestId("api-key-secret")).toHaveCount(0);
+    expect((await client.get("/api/v1/auth/me")).status()).toBe(401);
+  } finally { await client.dispose(); }
+  await expect(page.getByRole("region", { name: "Workspace audit log" })).toContainText("credential.rotate");
+
+  // Always exercise file delivery in a workspace other than the server's default.
+  const defaultId = (await (await page.request.get("/api/v1/auth/me")).json()).workspace_id;
+  const target = defaultId === first ? second : first;
+  const other = target === first ? second : first;
+  const headers = { "x-csrf-token": identity.csrf_token, "x-eivon-workspace": target };
+  async function resource(kind: string, slug: string, spec: object, workspace = target) {
+    const scoped = { ...headers, "x-eivon-workspace": workspace };
+    const response = await page.request.post("/api/v1/resources", { headers: scoped, data: { kind, name: slug, slug, spec } });
+    expect(response.status(), await response.text()).toBe(201);
+    const item = await response.json();
+    expect((await page.request.post(`/api/v1/resources/${item.id}/publish`, { headers: scoped, data: { revision: item.revision } })).status()).toBe(201);
+    return { id: item.id, version: 1 };
+  }
+  const model = await resource("model", "scope-model", { provider: "demo", model: "demo" });
+  const agent = await resource("agent", "scope-agent", { model_ref: model });
+  const tool = await resource("tool", "scope-export", { description: "Create a workspace file", entrypoint: "export_text", effect: "write" });
+  const workflow = await resource("workflow", "scope-workflow", { steps: [{ type: "tool", id: "export", tool_ref: tool, arguments: { name: "工作区.md", content: "Scoped file content" } }] });
+  await resource("prompt", "other-workspace-only", { template: "Other space" }, other);
+  expect((await page.request.post("/api/v1/sessions", { headers, data: { agent_id: agent.id, title: "Isolated conversation" } })).status()).toBe(201);
+  const runResponse = await page.request.post("/api/v1/runs", { headers, data: { resource_id: workflow.id, input: {} } });
+  expect(runResponse.status()).toBe(202);
+  const run = await runResponse.json();
+  if (await page.getByLabel("Current workspace").inputValue() !== target) await page.getByLabel("Current workspace").selectOption(target);
+  await page.getByRole("button", { name: "06 Run history", exact: true }).click();
+  await page.getByRole("button", { name: `Inspect run ${run.id}`, exact: true }).click();
+  const inspector = page.getByRole("region", { name: "Run details" });
+  await expect(inspector.getByRole("status")).toHaveText("waiting_approval");
+  await inspector.getByRole("button", { name: "Approve", exact: true }).click();
+  await expect(inspector.getByRole("status")).toHaveText("completed");
+  const downloading = page.waitForEvent("download");
+  await inspector.getByRole("link", { name: "工作区.md", exact: true }).click();
+  const download = await downloading;
+  expect(download.suggestedFilename()).toBe("工作区.md");
+  expect(await readFile((await download.path())!, "utf8")).toBe("Scoped file content");
+  await page.getByRole("button", { name: "05 Playground", exact: true }).click();
+  await expect(page.getByRole("navigation", { name: "Saved conversations" })).toContainText("Isolated conversation");
+  await page.getByLabel("Current workspace").selectOption(other);
+  await page.getByRole("button", { name: "05 Playground", exact: true }).click();
+  await expect(page.getByRole("navigation", { name: "Saved conversations" })).not.toContainText("Isolated conversation");
+  await page.getByRole("button", { name: "03 Resources", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "other-workspace-only", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "scope-agent", exact: true })).toHaveCount(0);
+  await page.getByLabel("Current workspace").selectOption(target);
+  await page.reload();
+  await expect(page.getByLabel("Current workspace")).toHaveValue(target);
+  await page.getByRole("button", { name: "03 Resources", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "scope-agent", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "other-workspace-only", exact: true })).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test("manage member roles and let a removed member sign out", async ({ page, browser }) => {
+  const owner = await signInThroughUI(page);
+  await page.getByRole("button", { name: "09 Members", exact: true }).click();
+  const form = page.getByRole("form", { name: "Add member" });
+  await form.getByLabel("Name", { exact: true }).fill("Workspace editor");
+  await form.getByLabel("Email", { exact: true }).fill("workspace-editor@example.test");
+  await form.getByLabel("Initial password").fill("workspace-editor-password");
+  await form.getByRole("button", { name: "Add member", exact: true }).click();
+  await expect(page.getByRole("status")).toHaveText("Member added");
+  const member = page.getByRole("article", { name: "workspace-editor@example.test" });
+  const reader = await browser.newPage();
+  try {
+    await reader.goto("/");
+    await reader.getByLabel("Email", { exact: true }).fill("workspace-editor@example.test");
+    await reader.getByLabel("Password", { exact: true }).fill("workspace-editor-password");
+    await reader.getByRole("button", { name: "Sign in", exact: true }).click();
+    await expect(reader.getByLabel("Current workspace")).toHaveValue(owner.workspace_id);
+    await reader.getByRole("button", { name: "03 Resources", exact: true }).click();
+    await expect(reader.getByRole("button", { name: "+ New resource", exact: true })).toBeVisible();
+    await member.getByLabel("Member role").selectOption("viewer");
+    await member.getByRole("button", { name: "Save role", exact: true }).click();
+    await expect(page.getByRole("status")).toHaveText("Member role updated");
+    await reader.getByRole("button", { name: "10 Settings", exact: true }).click();
+    await reader.getByRole("button", { name: "Refresh access", exact: true }).click();
+    await expect(reader.getByText(/Signed in as.* · viewer/)).toBeVisible();
+    await reader.getByRole("button", { name: "03 Resources", exact: true }).click();
+    await expect(reader.getByRole("button", { name: "+ New resource", exact: true })).toHaveCount(0);
+    await member.getByRole("button", { name: "Remove member", exact: true }).click();
+    await expect(member).toHaveCount(0);
+    await reader.reload();
+    await expect(reader.getByRole("alert")).toBeVisible();
+    await reader.getByRole("button", { name: "Sign out", exact: true }).click();
+    await expect(reader.getByRole("heading", { name: "Welcome back", exact: true })).toBeVisible();
+  } finally { await reader.close(); }
+});

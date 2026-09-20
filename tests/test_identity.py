@@ -130,3 +130,166 @@ def test_validation_errors_do_not_echo_password(client):
     )
     assert response.status_code == 422
     assert "secret-value" not in response.text
+
+
+def test_workspace_management_rotation_and_audit_are_scoped(client, owner, app):
+    first = owner["workspace_id"]
+    credential = client.post(
+        "/api/v1/credentials", json={"name": "Provider", "value": "initial-private-value"}
+    ).json()
+    second = client.post("/api/v1/workspaces", json={"name": "Second"}).json()["id"]
+    key = client.post(
+        "/api/v1/api-keys", json={"name": "Scoped reader", "permissions": ["read"]}
+    ).json()
+    key_headers = {"Authorization": "Bearer " + key["secret"], "x-eivon-workspace": first}
+    identity = client.get("/api/v1/auth/me", headers=key_headers).json()
+    assert [item["id"] for item in identity["workspaces"]] == [first]
+    assert client.get("/api/v1/audit-events", headers=key_headers).status_code == 403
+    assert (
+        client.put(
+            f"/api/v1/credentials/{credential['id']}",
+            headers={"x-eivon-workspace": second},
+            json={"name": "Denied", "value": "cross-workspace-value"},
+        ).status_code
+        == 404
+    )
+    rotated = client.put(
+        f"/api/v1/credentials/{credential['id']}",
+        json={"name": "Rotated", "value": "replacement-private-value"},
+    )
+    assert rotated.status_code == 200
+    assert rotated.json()["id"] == credential["id"]
+    assert "private-value" not in rotated.text
+    assert (
+        app.state.security.credential_value(first, credential["id"]) == "replacement-private-value"
+    )
+    assert (
+        client.patch(
+            f"/api/v1/workspaces/{first}",
+            headers={"x-eivon-workspace": second},
+            json={"name": "Wrong space"},
+        ).status_code
+        == 404
+    )
+    assert (
+        client.patch(f"/api/v1/workspaces/{first}", json={"name": "Renamed workspace"}).status_code
+        == 200
+    )
+    assert any(
+        item["name"] == "Renamed workspace"
+        for item in client.get("/api/v1/auth/me").json()["workspaces"]
+    )
+    audit = client.get("/api/v1/audit-events").json()
+    actions = {item["action"] for item in audit["items"]}
+    assert {
+        "credential.create",
+        "credential.rotate",
+        "workspace.rename",
+        "api_key.create",
+    } <= actions
+    assert "private-value" not in str(audit) and key["secret"] not in str(audit)
+    assert (
+        client.get("/api/v1/audit-events", headers={"x-eivon-workspace": second}).json()["total"]
+        == 0
+    )
+    page = client.get("/api/v1/audit-events?limit=1").json()
+    next_page = client.get("/api/v1/audit-events?limit=1&offset=1").json()
+    assert page["total"] == audit["total"]
+    assert page["items"][0]["id"] != next_page["items"][0]["id"]
+
+
+def test_role_changes_restrict_existing_keys_and_revoked_member_can_logout(client, owner, app):
+    member = client.post(
+        "/api/v1/members",
+        json={
+            "name": "Administrator",
+            "email": "admin@example.test",
+            "password": "long-admin-password",
+            "role": "admin",
+        },
+    ).json()
+    with TestClient(app) as admin:
+        login = admin.post(
+            "/api/v1/auth/login",
+            json={"email": "admin@example.test", "password": "long-admin-password"},
+        ).json()
+        admin.headers["x-csrf-token"] = login["csrf_token"]
+        key = admin.post(
+            "/api/v1/api-keys",
+            json={"name": "Authoring", "permissions": ["read", "write", "admin"]},
+        ).json()
+        assert (
+            admin.post(
+                "/api/v1/members",
+                json={
+                    "name": "Escalation",
+                    "email": "escalate@example.test",
+                    "password": "long-test-password",
+                    "role": "admin",
+                },
+            ).status_code
+            == 403
+        )
+        assert (
+            client.patch(
+                f"/api/v1/members/{owner['user']['id']}", json={"role": "viewer"}
+            ).status_code
+            == 409
+        )
+        assert (
+            client.patch(
+                f"/api/v1/members/{member['user_id']}", json={"role": "viewer"}
+            ).status_code
+            == 200
+        )
+        assert admin.get("/api/v1/members").status_code == 403
+        headers = {"Authorization": "Bearer " + key["secret"]}
+        assert admin.get("/api/v1/resources", headers=headers).status_code == 200
+        assert (
+            admin.post(
+                "/api/v1/resources",
+                headers=headers,
+                json={
+                    "kind": "prompt",
+                    "name": "Denied",
+                    "slug": "denied",
+                    "spec": {"template": "denied"},
+                },
+            ).status_code
+            == 403
+        )
+        assert client.delete(f"/api/v1/members/{member['user_id']}").status_code == 204
+        assert admin.get("/api/v1/resources", headers=headers).status_code == 401
+        assert admin.get("/api/v1/auth/me").status_code == 403
+        # CSRF discovery remains authenticated by the session, independently of membership.
+        csrf = admin.get("/api/v1/auth/session")
+        assert csrf.status_code == 200
+        assert (
+            admin.post("/api/v1/auth/logout", headers={"x-csrf-token": "wrong"}).status_code == 403
+        )
+        admin.headers["x-csrf-token"] = csrf.json()["csrf_token"]
+        assert admin.post("/api/v1/auth/logout").status_code == 204
+        assert admin.get("/api/v1/auth/session").status_code == 401
+
+
+def test_member_email_validation_and_explicit_key_revocation(client, owner):
+    assert (
+        client.post(
+            "/api/v1/members",
+            json={"name": "Invalid", "email": "not-an-email", "password": "long-test-password"},
+        ).status_code
+        == 422
+    )
+    key = client.post(
+        "/api/v1/api-keys",
+        json={"name": "Expire or revoke", "permissions": ["read"], "expires_in_days": 1},
+    ).json()
+    assert key["expires_at"] > key["created_at"]
+    assert "secret" not in client.get("/api/v1/api-keys").json()["items"][0]
+    assert client.delete(f"/api/v1/api-keys/{key['id']}").status_code == 204
+    assert (
+        client.get(
+            "/api/v1/resources", headers={"Authorization": "Bearer " + key["secret"]}
+        ).status_code
+        == 401
+    )
