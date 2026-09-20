@@ -1,0 +1,34 @@
+services:
+  eivon:
+    build: .
+    ports:
+      - "8787:8787"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      EIVON_DATA_DIR: /var/lib/eivon
+      EIVON_DATABASE_URL: postgresql+psycopg://eivon:${POSTGRES_PASSWORD:-change-me}@postgres:5432/eivon
+      EIVON_INLINE_WORKER: "true"
+      EIVON_SECURE_COOKIES: "false"
+    volumes:
+      - eivon-data:/var/lib/eivon
+    depends_on:
+      postgres:
+        condition: service_healthy
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: eivon
+      POSTGRES_USER: eivon
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+    volumes:
+      - eivon-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eivon -d eivon"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+volumes:
+  eivon-data:
+  eivon-postgres:

@@ -1,0 +1,20 @@
+services:
+  eivon-worker:
+    build: .
+    command: ["worker"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      EIVON_DATA_DIR: /var/lib/eivon
+      EIVON_DATABASE_URL: postgresql+psycopg://eivon:${POSTGRES_PASSWORD:-change-me}@postgres:5432/eivon
+      EIVON_INLINE_WORKER: "false"
+    volumes:
+      - eivon-data:/var/lib/eivon
+    depends_on:
+      - eivon
+      - postgres
+volumes:
+  eivon-data:
+    external: true
+    name: eivon_eivon-data
