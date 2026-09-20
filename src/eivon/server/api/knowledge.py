@@ -38,6 +38,11 @@ def test_connection(connection_id: str, request: Request, identity: Identity):
     return request.app.state.knowledge.test_connection(identity, connection_id)
 
 
+@router.post("/knowledge/collections/{collection_id}/sync")
+def sync_collection(collection_id: str, request: Request, identity: Identity):
+    return request.app.state.knowledge.sync_collection(identity, collection_id)
+
+
 @router.get("/knowledge/collections")
 def collections(request: Request, identity: Identity):
     return {"items": request.app.state.knowledge.collections(identity)}

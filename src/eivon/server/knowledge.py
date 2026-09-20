@@ -7,8 +7,10 @@ import math
 import re
 from typing import Any
 
+import httpx
 from sqlalchemy import select
 
+from eivon.adapters.network import check_destination
 from eivon.core.contracts import ConnectionSpec
 from eivon.server.resources import validate_spec
 
@@ -69,8 +71,8 @@ def chunks(value: str, size: int = 1200, overlap: int = 120) -> list[str]:
 
 
 class Knowledge:
-    def __init__(self, database: Database):
-        self.database = database
+    def __init__(self, database: Database, settings=None, security=None):
+        self.database, self.settings, self.security = database, settings, security
 
     def _connection(self, db, principal, connection_id: str | None):
         if not connection_id:
@@ -115,6 +117,7 @@ class Knowledge:
         with self.database.transaction() as db:
             resource, release = self._connection(db, principal, connection_id)
             spec = ConnectionSpec.model_validate(release.spec)
+            check_destination(spec.base_url, self.settings.allowed_hosts if self.settings else ())
             if spec.credential_id:
                 credential = db.get(Credential, spec.credential_id)
                 if credential is None or credential.workspace_id != principal.workspace_id:
@@ -128,6 +131,113 @@ class Knowledge:
                 "adapter": spec.adapter,
                 "base_url": spec.base_url,
             }
+
+    def sync_collection(self, principal: Principal, collection_id: str) -> dict:
+        principal.require("write")
+        principal.require("execute")
+        with self.database.transaction() as db:
+            collection = db.get(Collection, collection_id)
+            if collection is None or collection.workspace_id != principal.workspace_id:
+                raise ServiceError("not_found", "Knowledge collection not found", 404)
+            if not collection.connection_id:
+                raise ServiceError(
+                    "connection_unavailable", "Collection has no sync connection", 409
+                )
+            resource, release = self._connection(db, principal, collection.connection_id)
+            if collection.connection_version != release.version:
+                raise ServiceError(
+                    "connection_changed", "Publish and rebind the collection before syncing", 409
+                )
+            spec = ConnectionSpec.model_validate(release.spec)
+            headers = {}
+            if spec.credential_id and self.security:
+                secret = self.security.credential_value(principal.workspace_id, spec.credential_id)
+                if secret:
+                    headers["Authorization"] = "Bearer " + secret
+        try:
+            with httpx.Client(timeout=spec.timeout_seconds, follow_redirects=False) as client:
+                response = client.get(
+                    check_destination(
+                        spec.base_url, self.settings.allowed_hosts if self.settings else ()
+                    ),
+                    headers=headers,
+                )
+                response.raise_for_status()
+                if len(response.content) > 5_000_000:
+                    raise ServiceError("source_too_large", "Knowledge source exceeds 5 MB", 413)
+                payload = response.json()
+        except ServiceError:
+            raise
+        except (httpx.HTTPError, ValueError) as exc:
+            raise ServiceError(
+                "connection_failed", "Knowledge connection request failed", 502
+            ) from exc
+        documents = payload.get("documents") if isinstance(payload, dict) else payload
+        if not isinstance(documents, list) or len(documents) > 500:
+            raise ServiceError(
+                "invalid_source", "Source must return a list or {documents: [...]}", 422
+            )
+        imported = skipped = 0
+        with self.database.transaction() as db:
+            for item in documents:
+                if (
+                    not isinstance(item, dict)
+                    or not isinstance(item.get("title"), str)
+                    or not isinstance(item.get("content"), str)
+                ):
+                    raise ServiceError(
+                        "invalid_source", "Each source document requires title and content", 422
+                    )
+                content = item["content"]
+                if not content.strip() or len(content) > 5_000_000:
+                    raise ServiceError(
+                        "invalid_document", "Source document content is invalid", 422
+                    )
+                digest = hashlib.sha256(content.encode()).hexdigest()
+                if db.scalar(
+                    select(Document).where(
+                        Document.collection_id == collection_id, Document.digest == digest
+                    )
+                ):
+                    skipped += 1
+                    continue
+                document = Document(
+                    collection_id=collection_id,
+                    title=item["title"][:200],
+                    content=content,
+                    source_uri=str(item.get("source_uri") or spec.base_url)[:2048],
+                    digest=digest,
+                    status="indexed",
+                )
+                db.add(document)
+                db.flush()
+                for position, part in enumerate(chunks(content)):
+                    db.add(
+                        Chunk(
+                            document_id=document.id,
+                            position=position,
+                            content=part,
+                            terms=terms(part),
+                            embedding=embedding(part),
+                        )
+                    )
+                imported += 1
+            audit(
+                db,
+                principal,
+                "knowledge.collection.sync",
+                collection_id,
+                imported=imported,
+                skipped=skipped,
+                connection_id=collection.connection_id,
+            )
+        return {
+            "collection_id": collection_id,
+            "connection_id": resource.id,
+            "connection_version": release.version,
+            "imported": imported,
+            "skipped": skipped,
+        }
 
     def collections(self, principal: Principal) -> list[dict]:
         principal.require("read")

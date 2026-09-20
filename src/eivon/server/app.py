@@ -46,7 +46,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     extensions.load(settings.extensions)
     resources_service = Resources(database)
     artifacts = Artifacts(database, settings)
-    knowledge = Knowledge(database)
+    knowledge = Knowledge(database, settings, security)
     run_service = Runs(database, resources_service)
     evaluations = Evaluations(database, run_service)
     worker = RunWorker(database, run_service, settings, security, artifacts, extensions, knowledge)

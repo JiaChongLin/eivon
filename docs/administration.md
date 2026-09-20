@@ -41,4 +41,4 @@ Send `x-eivon-workspace: <workspace-id>` for an explicit scope. Cookie-authentic
 
 Audit event details include action identifiers and affected resources, not credential plaintext or API key secrets. Retention/export policies and account recovery remain deployment responsibilities.
 
-Knowledge collections may bind an active versioned connection from the current workspace. Binding checks the connection and credential scope; it does not make a remote request.
+Knowledge collections may bind an active versioned connection from the current workspace. Binding checks the connection and credential scope. **Sync connection** performs a bounded GET to the connection URL when the deployment allowlist permits it. The generic source contract accepts either `{ "documents": [{ "title": "…", "content": "…", "source_uri": "…" }] }` or a document array; content is chunked, embedded locally, deduplicated by digest and audited. Sync never follows redirects, accepts embedded credentials or bypasses workspace scope.

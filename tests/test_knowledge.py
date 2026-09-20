@@ -23,8 +23,10 @@ def test_workspace_scoped_knowledge_ingestion_and_search(client, owner):
     assert result.json()["items"][0]["source_uri"] == "manual://guide"
 
 
-def test_semantic_hybrid_search_and_connection_binding(client, owner):
+def test_semantic_hybrid_search_and_connection_binding(client, app, owner):
     from .conftest import create_resource, publish
+
+    object.__setattr__(app.state.settings, "allowed_hosts", ("knowledge.example.test",))
 
     connection = create_resource(
         client,
@@ -102,3 +104,63 @@ def test_knowledge_connection_and_embedding_scope_are_workspace_bound(client, ow
         ).status_code
         == 403
     )
+
+
+def test_connection_sync_imports_and_deduplicates_documents(client, app, owner, monkeypatch):
+    from eivon.server import knowledge as knowledge_module
+
+    from .conftest import create_resource, publish
+
+    object.__setattr__(app.state.settings, "allowed_hosts", ("knowledge.example.test",))
+    connection = create_resource(
+        client,
+        "connection",
+        "sync-api",
+        {"adapter": "http", "base_url": "https://knowledge.example.test/documents"},
+    )
+    publish(client, connection)
+    collection = client.post(
+        "/api/v1/knowledge/collections", json={"name": "Synced", "connection_id": connection["id"]}
+    ).json()
+
+    class Response:
+        content = b'{"documents": [{"title": "Remote guide", "content": "A remote engine guide.", "source_uri": "remote://guide"}]}'
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {
+                "documents": [
+                    {
+                        "title": "Remote guide",
+                        "content": "A remote engine guide.",
+                        "source_uri": "remote://guide",
+                    }
+                ]
+            }
+
+    class Client:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def get(self, url, headers):
+            assert url.startswith("https://knowledge.example.test")
+            return Response()
+
+    monkeypatch.setattr(knowledge_module.httpx, "Client", Client)
+    first = client.post(f"/api/v1/knowledge/collections/{collection['id']}/sync")
+    second = client.post(f"/api/v1/knowledge/collections/{collection['id']}/sync")
+    assert first.status_code == second.status_code == 200
+    assert first.json()["imported"] == 1 and second.json()["skipped"] == 1
+    hits = client.post(
+        "/api/v1/knowledge/search",
+        json={"collection_ids": [collection["id"]], "query": "remote guide"},
+    ).json()["items"]
+    assert len(hits) == 1 and hits[0]["source_uri"] == "remote://guide"

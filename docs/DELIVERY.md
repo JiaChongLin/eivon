@@ -35,7 +35,8 @@ Status: runnable foundation release, still pre-1.0. Completed capabilities and o
 - [x] Workspace switching, create/rename, scoped file delivery and resource/conversation isolation browser E2E
 - [x] Optional isolated Python extension runner with JSON boundary, timeout and cancellation termination; OS sandboxing remains deployment-owned
 - [x] Knowledge connection binding, connection checks and semantic/hybrid retrieval
-- [ ] Remote knowledge synchronization and provider-managed embeddings
+- [x] Bounded generic JSON knowledge synchronization with source metadata and digest deduplication
+- [ ] Provider-managed embeddings and connector-specific sync adapters
 - [x] Side-by-side evaluation comparison, failure evidence, human scoring and reviewed instruction candidates
 - [ ] Model-generated failure analysis and instruction suggestions
 - [x] Resource release rollback and immutable version inspection user flows
@@ -89,3 +90,7 @@ Knowledge verification final: `.venv/bin/pytest -q` passed 58 tests; `npm run bu
 2026-09-20: Added `EIVON_EXTENSION_RUNNER=process`. Process mode avoids importing extension modules in the worker, starts one short-lived child per Python tool call, validates an ExecutionContext/ToolResult JSON protocol, and terminates the process group on timeout or cancellation. The default trusted mode remains available; deployment-level OS sandboxing is still required for hostile code.
 
 Extension verification: `.venv/bin/pytest -q` passed 60 tests; extension-specific execution and timeout tests passed; `npm run build --prefix console` passed; all 9 browser scenarios passed after the change.
+
+2026-09-20: Added generic Knowledge synchronization. A bound connection can GET a bounded JSON document feed, validate the deployment allowlist and credentials, preserve source URIs, compute local embeddings and skip duplicate content by digest. The console exposes Sync connection for bound collections.
+
+Knowledge synchronization verification: `.venv/bin/pytest -q` passed 61 tests; knowledge sync, connection scope and deduplication tests passed; `npm run build --prefix console` passed; all 9 browser scenarios passed. The sync contract is intentionally generic and does not claim connector-specific pagination, webhooks or provider-managed embedding quality.
