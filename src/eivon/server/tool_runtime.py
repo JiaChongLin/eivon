@@ -261,12 +261,9 @@ class ToolRuntime:
                 return ToolResult(success=True, data={"artifact": artifact}, artifacts=[artifact])
             raise ValueError("Unknown builtin tool")
         if spec.adapter == "python":
-            handler = self.extensions.tools.get(spec.entrypoint)
-            if handler is None:
-                raise ValueError(
-                    "Python extension is not installed by the deployment administrator"
-                )
-            return ToolResult.model_validate(await handler(arguments, self.context))
+            return await self.extensions.invoke(
+                spec.entrypoint, arguments, self.context, spec.timeout_seconds
+            )
         if spec.adapter == "http":
             url = check_destination(str(spec.config["url"]), self.settings.allowed_hosts)
             method = str(spec.config.get("method", "GET")).upper()

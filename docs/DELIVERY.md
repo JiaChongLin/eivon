@@ -33,7 +33,7 @@ Status: runnable foundation release, still pre-1.0. Completed capabilities and o
 - [x] Agent resource authoring, multi-turn chat, file approval/download, conversation recovery and cancellation browser E2E
 - [x] Resource publication, comparison, activation rollback, archive/restore, conflicts and read-only role browser E2E
 - [x] Workspace switching, create/rename, scoped file delivery and resource/conversation isolation browser E2E
-- [ ] Isolated extension runners; Python imports currently remain trusted deployment code
+- [x] Optional isolated Python extension runner with JSON boundary, timeout and cancellation termination; OS sandboxing remains deployment-owned
 - [x] Knowledge connection binding, connection checks and semantic/hybrid retrieval
 - [ ] Remote knowledge synchronization and provider-managed embeddings
 - [x] Side-by-side evaluation comparison, failure evidence, human scoring and reviewed instruction candidates
@@ -84,3 +84,8 @@ Evaluation-center verification: `.venv/bin/pytest -q` passed 56 tests (two depen
 Knowledge verification: `.venv/bin/pytest -q tests/test_knowledge.py` passed 3 tests; full suite and browser verification follow this change. Semantic retrieval is a deterministic local embedding baseline for self-hosted/offline installs, not a claim of model-quality vector search. Remote connector synchronization and provider-managed embedding models remain optional future extensions.
 
 Knowledge verification final: `.venv/bin/pytest -q` passed 58 tests; `npm run build --prefix console` passed; `EIVON_TEST_CHROME='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' npm run test:e2e --prefix console` passed all 9 browser scenarios. The disposable browser server covered connection binding, source metadata and semantic/lexical search. The repository remains pre-1.0: remote synchronization, provider-managed embeddings, isolated extension runners, high-load measurements and production restore rehearsal remain explicit follow-up work.
+
+
+2026-09-20: Added `EIVON_EXTENSION_RUNNER=process`. Process mode avoids importing extension modules in the worker, starts one short-lived child per Python tool call, validates an ExecutionContext/ToolResult JSON protocol, and terminates the process group on timeout or cancellation. The default trusted mode remains available; deployment-level OS sandboxing is still required for hostile code.
+
+Extension verification: `.venv/bin/pytest -q` passed 60 tests; extension-specific execution and timeout tests passed; `npm run build --prefix console` passed; all 9 browser scenarios passed after the change.

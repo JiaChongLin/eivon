@@ -21,7 +21,7 @@ Console screenshot from the deterministic browser acceptance fixture. See the [c
 - A dark management console with setup, overview, resource authoring, Agent publishing, Playground, Run history, Knowledge connections with lexical, semantic and hybrid retrieval and workspace administration (switching, members, credentials, API keys and audit).
 - An evaluation center with immutable test sets, historical batches, version comparison, rule scores, human reviews and instruction candidates that require approval before updating a draft.
 - SQLite for a zero-dependency local instance and PostgreSQL for deployment.
-- A deployment-time Python extension SDK; HTTP tools are configured with explicit server allowlists.
+- A deployment-time Python extension SDK with optional process isolation; HTTP tools are configured with explicit server allowlists.
 
 Python extensions run with the deployment's privileges. Eivon is not a sandbox for untrusted extension code. Read [SECURITY.md](SECURITY.md) before exposing an instance.
 

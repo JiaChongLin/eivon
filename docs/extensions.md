@@ -25,3 +25,11 @@ HTTP tools use `config.url`, `config.method` and an optional `credential_id`. Th
 ## MCP and isolated runners
 
 Tool resources with `adapter: mcp` use a Streamable HTTP JSON-RPC `tools/call` request. Set `config.url`, optionally set `config.tool`, and allow the host with `EIVON_OUTBOUND_HOSTS`; credentials and approvals use the same boundary as HTTP tools. Server discovery, stdio transport and isolated extension runners belong in deployment packages. Do not treat deployment-time Python import as a sandbox or expose it to untrusted package authors. See `docs/DELIVERY.md`.
+
+## Process-isolated runner
+
+Set `EIVON_EXTENSION_RUNNER=process` when extension code should execute outside the API/worker Python process. In this mode the worker records configured module names without importing them, starts a fresh `python -m eivon.core.extension_runner` child for each Python tool call, sends one JSON request, and receives one validated `ToolResult` JSON response. The request includes only the arguments and the serializable `ExecutionContext` (workspace, principal, session, Run and business context).
+
+The parent enforces the resource tool's timeout and result-size limit. A timeout or cancellation terminates the child process group. A non-zero exit or malformed response becomes a generic tool failure, with child stderr truncated in server logs. This boundary prevents extension globals and imports from sharing the worker process, but it is not a complete OS sandbox: the child inherits the deployment environment and filesystem permissions. Run the worker under a dedicated container/user, mount only required files, apply cgroups/seccomp/AppArmor as appropriate, and keep `EIVON_EXTENSIONS` limited to reviewed modules.
+
+The default remains `trusted` for compatibility with existing deployments. Both modes use the same resource authorization, approval, outbound-host and credential checks. The child cannot write Eivon database rows directly through the protocol; domain effects must use an explicit service or connector boundary.

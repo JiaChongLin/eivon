@@ -40,7 +40,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     database = Database(settings)
     database.initialize()
     security = Security(database, settings)
-    extensions = ExtensionRegistry()
+    if settings.extension_runner not in {"trusted", "process"}:
+        raise ValueError("EIVON_EXTENSION_RUNNER must be trusted or process")
+    extensions = ExtensionRegistry(mode=settings.extension_runner)
     extensions.load(settings.extensions)
     resources_service = Resources(database)
     artifacts = Artifacts(database, settings)

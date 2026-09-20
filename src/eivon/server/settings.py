@@ -21,6 +21,9 @@ class Settings:
             x.strip() for x in os.getenv("EIVON_OUTBOUND_HOSTS", "").split(",") if x.strip()
         )
     )
+    extension_runner: str = field(
+        default_factory=lambda: os.getenv("EIVON_EXTENSION_RUNNER", "trusted")
+    )
     extensions: tuple[str, ...] = field(
         default_factory=lambda: tuple(
             x.strip() for x in os.getenv("EIVON_EXTENSIONS", "").split(",") if x.strip()

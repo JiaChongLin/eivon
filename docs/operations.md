@@ -12,7 +12,7 @@ Set `EIVON_INLINE_WORKER=false` for the API process and run `eivon worker` in on
 
 ## Extension trust
 
-Python extensions execute with deployment privileges. Only install reviewed packages and use a separate worker image or process boundary for untrusted connectors. HTTP adapters require `EIVON_OUTBOUND_HOSTS`; credentials are encrypted at rest and redacted from connector results.
+Python extensions execute with deployment privileges by default. Set `EIVON_EXTENSION_RUNNER=process` to run each extension call in a short-lived child process with timeout/cancellation termination and a JSON result boundary. The process runner is a boundary, not a kernel sandbox: use a dedicated worker container/user and OS controls for untrusted connectors. Only install reviewed packages. HTTP adapters require `EIVON_OUTBOUND_HOSTS`; credentials are encrypted at rest and redacted from connector results.
 
 ## Backups and upgrades
 
