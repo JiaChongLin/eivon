@@ -23,8 +23,8 @@ Status: runnable foundation release. The repository is still pre-1.0; the unchec
 - [x] README, architecture, API, extension, operations and contribution documentation
 - [x] License, publication inventory and clean export tooling
 - [x] Backend contracts/integration tests and frontend build
-- [ ] Multi-worker cancellation/recovery stress; lease fencing and permission/failure-mode coverage are verified
-- [ ] Clean-machine startup and release artifact verification
+- [x] Multi-worker lease fencing, cancellation/recovery and permission/failure-mode coverage (high-load stress testing remains)
+- [x] Clean-machine startup and release artifact verification
 
 ## Implementation log
 

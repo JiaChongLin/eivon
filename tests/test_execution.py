@@ -9,6 +9,8 @@ from eivon.server.app import create_app
 from eivon.server.db import Run
 from eivon.server.settings import Settings
 
+from .conftest import create_resource, publish
+
 
 def test_published_agent_runs_through_inline_worker():
     with TemporaryDirectory() as directory:
@@ -152,8 +154,6 @@ def test_workflow_approval_waits_and_resumes_once():
 
 
 def test_worker_lease_fences_claims_and_terminalizes_stale_runs(client, owner, app):
-    from .conftest import create_resource, publish
-
     model = publish(
         client,
         create_resource(client, "model", "lease-model", {"provider": "demo", "model": "demo"}),
@@ -174,3 +174,48 @@ def test_worker_lease_fences_claims_and_terminalizes_stale_runs(client, owner, a
     assert "side effect" in current["error"]
     events = client.get(f"/api/v1/runs/{first['id']}/events").json()["items"]
     assert events[-1]["type"] == "run.failed"
+
+
+def test_two_app_instances_share_worker_fence_and_cancel_state():
+    with TemporaryDirectory() as directory:
+        settings = Settings(data_dir=Path(directory), setup_token="setup", inline_worker=False)
+        app_one = create_app(settings)
+        app_two = create_app(settings)
+        with TestClient(app_one) as first, TestClient(app_two) as second:
+            setup = first.post(
+                "/api/v1/setup",
+                json={
+                    "setup_token": "setup",
+                    "email": "owner@example.test",
+                    "password": "long-test-password",
+                    "name": "Owner",
+                },
+            )
+            assert setup.status_code == 201
+            first.headers["x-csrf-token"] = setup.json()["csrf_token"]
+            login = second.post(
+                "/api/v1/auth/login",
+                json={"email": "owner@example.test", "password": "long-test-password"},
+            )
+            assert login.status_code == 200
+            second.headers["x-csrf-token"] = login.json()["csrf_token"]
+            model = publish(
+                first,
+                create_resource(
+                    first, "model", "shared-model", {"provider": "demo", "model": "demo"}
+                ),
+            )
+            agent = create_resource(first, "agent", "shared-agent", {"model_ref": model})
+            publish(first, agent)
+            created = first.post(
+                "/api/v1/runs", json={"resource_id": agent["id"], "message": "cancel"}
+            )
+            run_id = created.json()["id"]
+            claimed = app_one.state.runs.claim("worker-one", 60)
+            assert claimed is not None
+            assert app_two.state.runs.claim("worker-two", 60) is None
+            cancelled = second.post(f"/api/v1/runs/{run_id}/cancel")
+            assert cancelled.status_code == 200
+            assert app_one.state.runs.cancelled(run_id, "worker-one") is True
+            app_one.state.runs.finish(run_id, "worker-one", "completed", output={"text": "late"})
+            assert first.get(f"/api/v1/runs/{run_id}").json()["status"] == "cancelled"
