@@ -40,6 +40,6 @@ The core uses `business_context: dict` only as a validated extension-owned paylo
 
 ## Current supported baseline
 
-The baseline console supports setup, sign-in, resource drafts and JSON editing/publishing, Agent composition from published model/Prompt resources, Playground execution, Run history, evaluations, knowledge collection/document ingestion, encrypted credentials and workspace administration. The runtime supports model streaming, offline demo model, HTTP/Python/MCP tools, approval waits, input waits, resumable workflow steps, cancellation, durable evaluation batches and ordered events.
+The baseline console supports setup, sign-in, resource drafts, JSON editing/publishing and a structured Workflow Studio, Agent composition from published model/Prompt resources, Playground execution, Run history, evaluations, knowledge collection/document ingestion, encrypted credentials and workspace administration. The runtime supports model streaming, offline demo model, HTTP/Python/MCP tools, approval waits, input waits, resumable workflow steps, cancellation, durable evaluation batches and ordered events.
 
 A stable open-source release still requires broader browser E2E, isolated extension runners, version-comparison workflows and production operations hardening. Those are tracked in `docs/DELIVERY.md`; this document does not silently claim those items are complete.

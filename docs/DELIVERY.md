@@ -13,10 +13,10 @@ Status: runnable foundation release. The repository is still pre-1.0; the unchec
 - [x] Execution-time authorization, tool approvals and safe extension boundaries (trusted Python extensions remain deployment-scoped)
 - [x] Durable runs, ordered events, sessions, artifacts and worker coordination
 - [x] Knowledge ingestion, lexical retrieval and source metadata; semantic citations and connection management remain
-- [x] Evaluation sets, batch Runs and deterministic result scoring; version comparison and reviewed improvement suggestions remain
+- [x] Evaluation sets, batch Runs, deterministic result scoring and release selection; side-by-side version comparison and reviewed improvement suggestions remain
 - [x] Complete console: setup, dashboard, agents, resources, playground, chat
 - [x] Complete console: runs, knowledge, evaluations, approvals, members, settings (richer administration and version comparison remain)
-- [x] Workflow baseline execution with documented supported semantics (visual editing remains)
+- [x] Workflow baseline execution and structured visual step editor with documented supported semantics (graph canvas remains)
 - [x] HTTP, trusted Python and Streamable HTTP MCP tool integration
 - [x] Generic starter examples and two distinct synthetic domain bundles
 - [x] Docker/Compose, versioned schema bootstrap and deployment instructions
@@ -34,5 +34,6 @@ Current FarmLynk application code and pre-existing untracked files are untouched
 2026-09-20: Added Knowledge and Members console pages plus an approval card in Playground so waiting Runs can be resumed from the UI.
 2026-09-20: Added schema migration CLI, persisted evaluation sets/results, evaluation console, MCP Streamable HTTP calls, clean source export tooling and lease-fencing coverage.
 2026-09-20: Verified a tracked-file export on a clean temporary directory: schema migration, worker startup, Python wheel build and console install/build all succeeded.
+2026-09-20: Added the Workflow Studio for structured input/tool/condition step editing, draft saves and release publishing.
 
 2026-09-20: Created independent Eivon project in ~/work/eivon. Original scaffold retained.
