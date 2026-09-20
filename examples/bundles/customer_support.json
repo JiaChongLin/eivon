@@ -1,0 +1,14 @@
+{
+  "kind": "bundle",
+  "name": "Customer support starter",
+  "slug": "customer-support-starter",
+  "spec": {
+    "description": "Synthetic support bundle. Replace the IDs with published resources.",
+    "tool_refs": [],
+    "skill_refs": [],
+    "prompt_refs": [],
+    "workflow_refs": [],
+    "knowledge_collection_ids": [],
+    "context_schema": {"type": "object", "properties": {"customer_id": {"type": "string"}}}
+  }
+}

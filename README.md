@@ -14,7 +14,7 @@ The core does not know what industry an Agent serves. A customer support Agent, 
 - Typed tool execution with JSON Schema validation, timeouts, result budgets, write approvals and outbound host allowlists.
 - Durable Runs with ordered events, cancellation, approval/input waiting, resume support and worker leases.
 - Workspace-scoped resources, roles, API keys, CSRF-protected sessions, encrypted credentials and audit events.
-- A dark management console with setup, overview, resource authoring, Agent publishing, Playground and Run history.
+- A dark management console with setup, overview, resource authoring, Agent publishing, Playground, Run history, Knowledge indexing/search and workspace Members.
 - SQLite for a zero-dependency local instance and PostgreSQL for deployment.
 - A deployment-time Python extension SDK; HTTP tools are configured with explicit server allowlists.
 
@@ -50,7 +50,7 @@ The default Compose service runs an inline worker. For a separate worker, set `E
 2. Open **Resources → New resource**, create a `model` using the offline demo provider, and publish it.
 3. Create a `prompt` and publish it.
 4. Open **Agents → New resource**, select the published model and prompt, and publish the Agent.
-5. Open **Playground**, select the published Agent, send a message and watch the ordered execution trace.
+5. Open **Playground**, select the published Agent, send a message and watch the ordered execution trace. If a tool requires approval, the run pauses with an approval card and resumes from the same checkpoint.
 
 For a real provider, create an encrypted Credential through the API, reference its ID from a model resource, and add the model endpoint host to `EIVON_OUTBOUND_HOSTS`. Secrets are never returned by the credential API.
 

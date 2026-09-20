@@ -1,0 +1,14 @@
+{
+  "kind": "bundle",
+  "name": "Operations starter",
+  "slug": "operations-starter",
+  "spec": {
+    "description": "Synthetic asset operations bundle. Replace the IDs with published resources.",
+    "tool_refs": [],
+    "skill_refs": [],
+    "prompt_refs": [],
+    "workflow_refs": [],
+    "knowledge_collection_ids": [],
+    "context_schema": {"type": "object", "properties": {"asset_id": {"type": "string"}}}
+  }
+}
