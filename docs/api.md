@@ -16,7 +16,7 @@ Create a Run with `POST /runs`, read ordered events with `GET /runs/{id}/events`
 
 ## Domain data
 
-Knowledge collections and documents use `/knowledge/collections` and `/knowledge/documents`; lexical, semantic and hybrid retrieval is available at `/knowledge/search`. A collection can bind a published `embedding` resource or use the deterministic local provider. Domain packages should put their business context, tools and authorization in Bundles or trusted extensions while keeping core resource contracts stable.
+Knowledge collections and documents use `/knowledge/collections` and `/knowledge/documents`; lexical, semantic and hybrid retrieval is available at `/knowledge/search`. A collection can bind a published `embedding` resource or use the deterministic local provider. Its connection can be an HTTP JSON feed or Streamable HTTP MCP resource; MCP connections set `resource_uri` to the server-side URI. Domain packages should put their business context, tools and authorization in Bundles or trusted extensions while keeping core resource contracts stable.
 
 ## Evaluations
 

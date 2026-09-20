@@ -229,3 +229,47 @@ def test_connection_sync_imports_and_deduplicates_documents(client, app, owner, 
         json={"collection_ids": [collection["id"]], "query": "remote guide"},
     ).json()["items"]
     assert len(hits) == 1 and hits[0]["source_uri"] == "remote://guide"
+
+
+def test_mcp_connection_sync_uses_resource_adapter(client, app, owner, monkeypatch):
+    from eivon.server import knowledge as knowledge_module
+
+    from .conftest import create_resource, publish
+
+    object.__setattr__(app.state.settings, "allowed_hosts", ("knowledge.example.test",))
+    connection = create_resource(
+        client,
+        "connection",
+        "mcp-knowledge",
+        {
+            "adapter": "mcp",
+            "base_url": "https://knowledge.example.test/mcp",
+            "resource_uri": "eivon://manuals",
+        },
+    )
+    publish(client, connection)
+    collection = client.post(
+        "/api/v1/knowledge/collections", json={"name": "MCP manuals", "connection_id": connection["id"]}
+    ).json()
+
+    async def fake_read_resource(*args, **kwargs):
+        assert args[0] == "https://knowledge.example.test/mcp"
+        assert args[1] == "eivon://manuals"
+        return {
+            "contents": [
+                {
+                    "uri": "eivon://manuals",
+                    "text": '{"documents": [{"title": "MCP guide", "content": "MCP source content"}]}'
+                }
+            ]
+        }
+
+    monkeypatch.setattr(knowledge_module, "read_resource", fake_read_resource)
+    response = client.post(f"/api/v1/knowledge/collections/{collection['id']}/sync")
+    assert response.status_code == 200, response.text
+    assert response.json()["imported"] == 1
+    hit = client.post(
+        "/api/v1/knowledge/search",
+        json={"collection_ids": [collection["id"]], "query": "MCP source", "mode": "lexical"},
+    ).json()["items"][0]
+    assert hit["source_uri"] == "eivon://manuals"

@@ -116,6 +116,9 @@ async def call_http(
     timeout: int = 30,
     transport: httpx.AsyncBaseTransport | None = None,
     max_response_bytes: int = 1_048_576,
+    rpc_method: str = "tools/call",
+    rpc_params: dict[str, Any] | None = None,
+    required_capability: str = "tools",
 ) -> Any:
     endpoint = check_destination(url, allowed_hosts)
     request_headers = httpx.Headers(headers or {})
@@ -161,8 +164,8 @@ async def call_http(
                 if version not in SUPPORTED_VERSIONS:
                     raise McpError("MCP server selected an unsupported protocol version")
                 capabilities = initialized.get("capabilities")
-                if not isinstance(capabilities, dict) or "tools" not in capabilities:
-                    raise McpError("MCP server did not advertise tools capability")
+                if not isinstance(capabilities, dict) or required_capability not in capabilities:
+                    raise McpError(f"MCP server did not advertise {required_capability} capability")
                 request_headers["MCP-Protocol-Version"] = version
                 async with client.stream(
                     "POST",
@@ -172,11 +175,40 @@ async def call_http(
                 ) as response:
                     if response.status_code != 202:
                         raise McpError("MCP server did not accept initialization notification")
-                result, _ = await request("tools/call", {"name": tool, "arguments": arguments})
-                return extract_result(result)
+                params = rpc_params if rpc_params is not None else {"name": tool, "arguments": arguments}
+                result, _ = await request(rpc_method, params)
+                return extract_result(result) if rpc_method == "tools/call" else result
         finally:
             if request_headers.get("Mcp-Session-Id"):
                 with suppress(httpx.HTTPError, TimeoutError):
                     async with asyncio.timeout(2):
                         async with client.stream("DELETE", endpoint, headers=request_headers):
                             pass
+
+
+async def read_resource(
+    url: str,
+    uri: str,
+    allowed_hosts: tuple[str, ...],
+    headers: dict[str, str] | None = None,
+    timeout: int = 30,
+    transport: httpx.AsyncBaseTransport | None = None,
+    max_response_bytes: int = 5_000_000,
+) -> dict[str, Any]:
+    """Read a JSON resource from an MCP server using the standard resources/read method."""
+    result = await call_http(
+        url,
+        "",
+        {},
+        allowed_hosts,
+        headers=headers,
+        timeout=timeout,
+        transport=transport,
+        max_response_bytes=max_response_bytes,
+        rpc_method="resources/read",
+        rpc_params={"uri": uri},
+        required_capability="resources",
+    )
+    if not isinstance(result.get("contents"), list):
+        raise McpError("MCP resource result has invalid contents")
+    return result

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
+import json
 import re
 from typing import Any
 
@@ -10,6 +12,7 @@ import httpx
 from sqlalchemy import select
 
 from eivon.adapters.embeddings import EmbeddingUnavailable, embed, local_embedding
+from eivon.adapters.mcp import McpError, read_resource
 from eivon.adapters.network import check_destination
 from eivon.core.contracts import ConnectionSpec, EmbeddingSpec
 from eivon.server.resources import validate_spec
@@ -146,6 +149,46 @@ class Knowledge:
                 "base_url": spec.base_url,
             }
 
+    def _fetch_source(self, spec: ConnectionSpec, headers: dict[str, str]):
+        allowed_hosts = self.settings.allowed_hosts if self.settings else ()
+        try:
+            if spec.adapter == "http":
+                with httpx.Client(timeout=spec.timeout_seconds, follow_redirects=False) as client:
+                    response = client.get(check_destination(spec.base_url, allowed_hosts), headers=headers)
+                    response.raise_for_status()
+                    if len(response.content) > 5_000_000:
+                        raise ServiceError("source_too_large", "Knowledge source exceeds 5 MB", 413)
+                    return response.json()
+            result = asyncio.run(
+                read_resource(
+                    spec.base_url,
+                    spec.resource_uri,
+                    allowed_hosts,
+                    headers=headers,
+                    timeout=spec.timeout_seconds,
+                    max_response_bytes=5_000_000,
+                )
+            )
+            documents = []
+            for content in result["contents"]:
+                if not isinstance(content, dict) or not isinstance(content.get("text"), str):
+                    continue
+                try:
+                    value = json.loads(content["text"])
+                except (TypeError, ValueError) as exc:
+                    raise ServiceError("invalid_source", "MCP resource text must contain JSON", 422) from exc
+                if isinstance(value, dict) and isinstance(value.get("documents"), list):
+                    documents.extend(value["documents"])
+                elif isinstance(value, list):
+                    documents.extend(value)
+                elif isinstance(value, dict):
+                    documents.append(value)
+            return documents
+        except ServiceError:
+            raise
+        except (httpx.HTTPError, McpError, ValueError, RuntimeError) as exc:
+            raise ServiceError("connection_failed", "Knowledge source request failed", 502) from exc
+
     def sync_collection(self, principal: Principal, collection_id: str) -> dict:
         principal.require("write")
         principal.require("execute")
@@ -174,24 +217,7 @@ class Knowledge:
                 secret = self.security.credential_value(principal.workspace_id, spec.credential_id)
                 if secret:
                     headers["Authorization"] = "Bearer " + secret
-        try:
-            with httpx.Client(timeout=spec.timeout_seconds, follow_redirects=False) as client:
-                response = client.get(
-                    check_destination(
-                        spec.base_url, self.settings.allowed_hosts if self.settings else ()
-                    ),
-                    headers=headers,
-                )
-                response.raise_for_status()
-                if len(response.content) > 5_000_000:
-                    raise ServiceError("source_too_large", "Knowledge source exceeds 5 MB", 413)
-                payload = response.json()
-        except ServiceError:
-            raise
-        except (httpx.HTTPError, ValueError) as exc:
-            raise ServiceError(
-                "connection_failed", "Knowledge connection request failed", 502
-            ) from exc
+        payload = self._fetch_source(spec, headers)
         documents = payload.get("documents") if isinstance(payload, dict) else payload
         if not isinstance(documents, list) or len(documents) > 500:
             raise ServiceError(
@@ -225,7 +251,10 @@ class Knowledge:
                     collection_id=collection_id,
                     title=item["title"][:200],
                     content=content,
-                    source_uri=str(item.get("source_uri") or spec.base_url)[:2048],
+                    source_uri=str(
+                        item.get("source_uri")
+                        or (spec.base_url if spec.adapter == "http" else spec.resource_uri)
+                    )[:2048],
                     digest=digest,
                     status="indexed",
                 )
@@ -257,6 +286,7 @@ class Knowledge:
                 imported=imported,
                 skipped=skipped,
                 connection_id=collection.connection_id,
+                adapter=spec.adapter,
             )
         return {
             "collection_id": collection_id,

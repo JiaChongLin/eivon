@@ -14,7 +14,7 @@ Prompt creation has a template editor. Agent creation selects a published model 
 
 Tools, skills, bundles, workflows and connections have editable JSON specifications at creation. Each type starts with its own valid template, and switching types preserves the separate editor buffers. The server validates the complete specification against the resource contract. The Workflow Studio additionally provides structured editing for all supported step types.
 
-Connection resources store versioned endpoint configuration. Knowledge collections can bind an active connection release and retain that binding while documents are indexed. The connection check validates its release and credential scope without sending a network request. HTTP/MCP Tool endpoint wiring and remote synchronization remain separate deployment extensions.
+Connection resources store versioned endpoint configuration. Knowledge collections can bind an active connection release and retain that binding while documents are indexed. HTTP connections read bounded JSON feeds; MCP connections read a configured `resource_uri` through `resources/read`. Both paths use the same outbound host, credential, timeout and response-size boundaries. The connection check validates its release and credential scope without sending a network request.
 
 ## Save, validate and publish
 

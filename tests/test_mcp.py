@@ -3,7 +3,7 @@ import json
 import httpx
 import pytest
 
-from eivon.adapters.mcp import McpError, call_http
+from eivon.adapters.mcp import McpError, call_http, read_resource
 from eivon.adapters.network import OutboundDenied
 
 
@@ -125,3 +125,42 @@ async def test_unconfigured_destination_never_sends_request():
         await call_http(
             "https://denied.test/mcp", "lookup", {}, (), transport=httpx.MockTransport(handler)
         )
+
+
+@pytest.mark.asyncio
+async def test_read_resource_uses_resources_capability_and_returns_contents():
+    def handler(request):
+        body = json.loads(request.content)
+        if body["method"] == "initialize":
+            return httpx.Response(
+                200,
+                json={
+                    "jsonrpc": "2.0",
+                    "id": body["id"],
+                    "result": {
+                        "protocolVersion": "2025-06-18",
+                        "capabilities": {"resources": {}},
+                        "serverInfo": {"name": "knowledge", "version": "1"},
+                    },
+                },
+            )
+        if body["method"] == "notifications/initialized":
+            return httpx.Response(202)
+        assert body["method"] == "resources/read"
+        assert body["params"] == {"uri": "eivon://manuals"}
+        return httpx.Response(
+            200,
+            json={
+                "jsonrpc": "2.0",
+                "id": body["id"],
+                "result": {"contents": [{"uri": "eivon://manuals", "text": '{"documents": []}'}]},
+            },
+        )
+
+    result = await read_resource(
+        "https://mcp.example.test/mcp",
+        "eivon://manuals",
+        ("mcp.example.test",),
+        transport=httpx.MockTransport(handler),
+    )
+    assert result["contents"][0]["uri"] == "eivon://manuals"

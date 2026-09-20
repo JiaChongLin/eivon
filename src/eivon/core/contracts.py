@@ -148,6 +148,7 @@ class ConnectionSpec(Contract):
     base_url: str = Field(min_length=1, max_length=2048)
     credential_id: str | None = None
     description: str = Field(default="", max_length=4000)
+    resource_uri: str = Field(default="eivon://knowledge", max_length=2048)
     timeout_seconds: int = Field(default=30, ge=1, le=120)
 
 

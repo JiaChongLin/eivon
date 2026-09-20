@@ -36,7 +36,7 @@ Status: runnable foundation release, still pre-1.0. Completed capabilities and o
 - [x] Optional isolated Python extension runner with JSON boundary, timeout and cancellation termination; OS sandboxing remains deployment-owned
 - [x] Knowledge connection binding, connection checks and semantic/hybrid retrieval
 - [x] Bounded generic JSON knowledge synchronization with source metadata and digest deduplication
-- [x] Provider-managed embeddings through versioned resources; connector-specific sync adapters remain
+- [x] Provider-managed embeddings through versioned resources and HTTP JSON/MCP Knowledge sync adapters
 - [x] Side-by-side evaluation comparison, failure evidence, human scoring and reviewed instruction candidates
 - [ ] Model-generated failure analysis and instruction suggestions
 - [x] Resource release rollback and immutable version inspection user flows
@@ -113,3 +113,7 @@ Analysis and embedding verification: `.venv/bin/pytest -q tests/test_evaluation_
 2026-09-20: Added a Workflow Studio graph view that renders ordered Input, Tool, Prompt and Condition nodes plus conditional skip edges. The existing step editor remains the source of truth; the graph is an inspection and navigation view, not a claim of arbitrary parallel graph execution.
 
 Graph verification: the workflow browser acceptance now switches to Graph view, verifies rendered nodes, returns to Step editor, and completes the existing publish, wait, approval, cancellation and Run inspection flow.
+
+2026-09-20: Added the Knowledge source adapter boundary for HTTP JSON feeds and Streamable HTTP MCP `resources/read`. Both adapters preserve the same outbound allowlist, credential, timeout, response-size, document-count and digest-deduplication rules.
+
+Source adapter verification: `.venv/bin/pytest -q tests/test_mcp.py tests/test_knowledge.py` passed 15 tests, including MCP capability negotiation and a workspace-scoped MCP document synchronization fixture.
