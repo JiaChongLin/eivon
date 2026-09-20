@@ -14,7 +14,7 @@ Status: implementation in progress. No release is claimed yet.
 - [x] Durable runs, ordered events, sessions, artifacts and worker coordination
 - [ ] Knowledge ingestion, retrieval, source citations and connection management
 - [ ] Evaluations, version comparisons and reviewed improvement suggestions
-- [x] Complete console: setup, dashboard, agents, resources, playground, chat
+- [ ] Complete console: setup, dashboard, agents, resources, playground, chat
 - [ ] Complete console: runs, knowledge, evaluations, approvals, members, settings
 - [ ] Workflow editing and execution with documented supported semantics
 - [ ] HTTP/OpenAPI, Python and MCP extension integration
