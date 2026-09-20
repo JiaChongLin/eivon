@@ -55,18 +55,17 @@ def main():
         print(f"Eivon schema version {version}")
         app.state.database.engine.dispose()
     elif args.command == "backup":
-        from eivon.server.app import create_app
         from eivon.server.backup import backup as create_backup
         from eivon.server.backup import postgres_backup
+        from eivon.server.settings import Settings
 
-        app = create_app()
+        settings = Settings()
         result = (
-            postgres_backup(app.state.settings, args.output)
-            if app.state.settings.db_url.startswith("postgresql")
-            else create_backup(app.state.settings, args.output)
+            postgres_backup(settings, args.output)
+            if settings.db_url.startswith("postgresql")
+            else create_backup(settings, args.output)
         )
         print(json.dumps(result, indent=2))
-        app.state.database.engine.dispose()
     elif args.command == "restore":
         from eivon.server.backup import postgres_restore, restore
         from eivon.server.settings import Settings
