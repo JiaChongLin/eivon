@@ -96,7 +96,7 @@ Extension verification: `.venv/bin/pytest -q` passed 60 tests; extension-specifi
 
 Knowledge synchronization verification: `.venv/bin/pytest -q` passed 61 tests; knowledge sync, connection scope and deduplication tests passed; `npm run build --prefix console` passed; all 9 browser scenarios passed. The sync contract is intentionally generic and does not claim connector-specific pagination, webhooks or provider-managed embedding quality.
 
-2026-09-20: Added `eivon backup` and `eivon restore --force`. SQLite archives use the online backup API and include artifacts plus a schema manifest; restore rejects unsafe paths and future schemas. PostgreSQL backup delegates to `pg_dump --format=custom`.
+2026-09-20: Added `eivon backup` and `eivon restore --force`. SQLite archives use the online backup API and include artifacts plus a schema manifest; restore rejects unsafe paths and future schemas. PostgreSQL backup delegates to `pg_dump --format=custom`, and restore delegates to a guarded `pg_restore` command.
 
 Backup verification: `.venv/bin/pytest -q` passed 63 tests; `npm run build --prefix console` passed; all 9 browser scenarios passed. SQLite round-trip and unsafe archive tests passed. PostgreSQL production restore rehearsal remains open.
 

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from eivon.server.backup import BackupError, backup, restore
+from eivon.server.backup import BackupError, backup, postgres_restore, restore
 from eivon.server.settings import Settings
 
 
@@ -47,3 +47,22 @@ def test_restore_rejects_unsafe_archive_and_requires_force(tmp_path):
         restore(settings, archive)
     with pytest.raises(BackupError, match="unsafe"):
         restore(settings, archive, force=True)
+
+
+def test_postgres_restore_requires_force_and_invokes_pg_restore(tmp_path, monkeypatch):
+    from eivon.server import backup as backup_module
+
+    archive = tmp_path / "eivon.dump"
+    archive.write_bytes(b"custom dump")
+    settings = Settings(
+        data_dir=tmp_path / "postgres",
+        database_url="postgresql+psycopg://eivon:test@db/eivon",
+    )
+    with pytest.raises(BackupError, match="force"):
+        postgres_restore(settings, archive)
+    calls = []
+    monkeypatch.setattr(backup_module.subprocess, "run", lambda command, check: calls.append((command, check)))
+    result = postgres_restore(settings, archive, force=True)
+    assert result["restored"] is True
+    assert calls[0][0][:4] == ["pg_restore", "--clean", "--if-exists", "--no-owner"]
+    assert settings.db_url in calls[0][0]

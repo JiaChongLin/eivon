@@ -133,3 +133,27 @@ def postgres_backup(settings: Settings, output: Path) -> dict:
         ["pg_dump", "--format=custom", "--file", str(output), settings.db_url], check=True
     )
     return {"path": str(output), "bytes": output.stat().st_size, "format": "postgres-custom"}
+
+
+def postgres_restore(settings: Settings, archive_path: Path, force: bool = False) -> dict:
+    """Restore a pg_dump custom archive into the configured PostgreSQL database."""
+    if not settings.db_url.startswith("postgresql"):
+        raise BackupError("pg_restore requires a PostgreSQL EIVON_DATABASE_URL")
+    if not force:
+        raise BackupError("Restore requires --force and must run with API/worker processes stopped")
+    archive_path = archive_path.expanduser().resolve()
+    if not archive_path.is_file():
+        raise BackupError(f"Backup does not exist: {archive_path}")
+    subprocess.run(
+        [
+            "pg_restore",
+            "--clean",
+            "--if-exists",
+            "--no-owner",
+            "--dbname",
+            settings.db_url,
+            str(archive_path),
+        ],
+        check=True,
+    )
+    return {"path": str(archive_path), "restored": True, "format": "postgres-custom"}

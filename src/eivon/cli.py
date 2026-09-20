@@ -21,7 +21,7 @@ def main():
     backup = sub.add_parser("backup", help="Create a SQLite database/artifact archive")
     backup.add_argument("output", type=Path)
     restore = sub.add_parser(
-        "restore", help="Restore a SQLite archive while the service is stopped"
+        "restore", help="Restore a SQLite or PostgreSQL backup while the service is stopped"
     )
     restore.add_argument("archive", type=Path)
     restore.add_argument("--force", action="store_true")
@@ -68,12 +68,16 @@ def main():
         print(json.dumps(result, indent=2))
         app.state.database.engine.dispose()
     elif args.command == "restore":
-        from eivon.server.app import create_app
-        from eivon.server.backup import restore
+        from eivon.server.backup import postgres_restore, restore
+        from eivon.server.settings import Settings
 
-        app = create_app()
-        app.state.database.engine.dispose()
-        print(json.dumps(restore(app.state.settings, args.archive, args.force), indent=2))
+        settings = Settings()
+        result = (
+            postgres_restore(settings, args.archive, args.force)
+            if settings.db_url.startswith("postgresql")
+            else restore(settings, args.archive, args.force)
+        )
+        print(json.dumps(result, indent=2))
     elif args.command == "worker":
         import asyncio
 
