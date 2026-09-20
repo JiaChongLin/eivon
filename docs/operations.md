@@ -33,3 +33,13 @@ eivon migrate
 ```
 
 The archive contains a consistent SQLite backup made with the SQLite backup API, the private artifacts directory and a schema manifest. Restore rejects path traversal, symbolic links and a schema newer than the running binary. For PostgreSQL, `eivon backup /secure/backups/eivon.dump` invokes `pg_dump --format=custom`, and `eivon restore /secure/backups/eivon.dump --force` invokes `pg_restore --clean --if-exists --no-owner`. Back up the database and private `EIVON_DATA_DIR` together, and verify a restore in a disposable environment before upgrading production. Health probes are `/health/live` and `/health/ready`.
+
+The repeatable rehearsal command is:
+
+```bash
+EIVON_DATABASE_URL=postgresql+psycopg://eivon:password@localhost:5432/eivon \
+EIVON_DATA_DIR=/tmp/eivon-postgres \
+.venv/bin/python scripts/postgres_restore_rehearsal.py
+```
+
+Run it only against a disposable database. The same check runs in the `postgres-rehearsal` GitHub Actions job.

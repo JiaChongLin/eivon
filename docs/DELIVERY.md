@@ -12,7 +12,7 @@ Status: runnable foundation release, still pre-1.0. Completed capabilities and o
 - [x] Agent loop with model streaming, tools, budgets, cancellation and checkpoints
 - [x] Execution-time authorization, tool approvals and safe extension boundaries (trusted Python extensions remain deployment-scoped)
 - [x] Durable runs, ordered events, sessions, artifacts and worker coordination
-- [x] Knowledge ingestion, connection bindings, bounded JSON synchronization, source metadata and lexical/semantic/hybrid retrieval; connector-specific adapters and provider embeddings remain
+- [x] Knowledge ingestion, connection bindings, bounded HTTP JSON/MCP synchronization, source metadata and lexical/semantic/hybrid retrieval with provider embeddings
 - [x] Evaluation sets, historical batches, deterministic scoring, human reviews, version comparison, model-generated failure analysis and reviewed instruction candidates
 - [x] Complete console: setup, dashboard, agents, resources, playground, chat
 - [x] Complete console: runs, knowledge, evaluations, model analysis, approvals, members, settings
@@ -24,7 +24,7 @@ Status: runnable foundation release, still pre-1.0. Completed capabilities and o
 - [x] License, publication inventory and clean export tooling
 - [x] Backend contracts/integration tests and frontend build
 - [x] Browser acceptance: initialization, workflow authoring, publication, waits, approval, cancellation and Run history
-- [x] GitHub Actions configuration for backend/build/browser checks (hosted execution pending publication)
+- [x] GitHub Actions configuration for backend/build/browser checks and PostgreSQL restore rehearsal (hosted execution pending publication)
 - [x] Multi-worker lease fencing, cancellation/recovery, permission/failure-mode coverage and repeatable high-load SQLite stress evidence
 - [x] Clean-machine startup and release artifact verification
 
@@ -38,11 +38,11 @@ Status: runnable foundation release, still pre-1.0. Completed capabilities and o
 - [x] Bounded generic JSON knowledge synchronization with source metadata and digest deduplication
 - [x] Provider-managed embeddings through versioned resources and HTTP JSON/MCP Knowledge sync adapters
 - [x] Side-by-side evaluation comparison, failure evidence, human scoring and reviewed instruction candidates
-- [ ] Model-generated failure analysis and instruction suggestions
+- [x] Model-generated failure analysis and instruction suggestions
 - [x] Resource release rollback and immutable version inspection user flows
 - [x] Member add/role/remove, credential rotation, API-key issue/revoke and workspace audit user flows
 - [x] High-load SQLite stress measurements
-- [ ] Production PostgreSQL upgrade/restore rehearsal
+- [ ] Production PostgreSQL upgrade/restore rehearsal against a real deployment; repeatable CI rehearsal is implemented
 - [x] Workflow graph view for the ordered executor and conditional skip edges
 
 ## Implementation log
@@ -117,3 +117,5 @@ Graph verification: the workflow browser acceptance now switches to Graph view, 
 2026-09-20: Added the Knowledge source adapter boundary for HTTP JSON feeds and Streamable HTTP MCP `resources/read`. Both adapters preserve the same outbound allowlist, credential, timeout, response-size, document-count and digest-deduplication rules.
 
 Source adapter verification: `.venv/bin/pytest -q tests/test_mcp.py tests/test_knowledge.py` passed 15 tests, including MCP capability negotiation and a workspace-scoped MCP document synchronization fixture.
+
+2026-09-20: Added `scripts/postgres_restore_rehearsal.py` and a PostgreSQL 16 GitHub Actions service job. The rehearsal initializes the Eivon schema, writes a marker, runs `pg_dump --format=custom`, mutates the marker, runs guarded `pg_restore`, and asserts that the original marker is restored. A hosted run is still required before calling this a production deployment rehearsal.
