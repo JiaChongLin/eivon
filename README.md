@@ -87,3 +87,5 @@ See [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md) and [docs/DEL
 ## License
 
 Apache-2.0. See [LICENSE](LICENSE).
+
+Workflow authoring, branching, input/approval waits and execution inspection are covered in the [workflow guide](docs/workflows.md). The console includes a structured editor and a Run history inspector; [delivery status](docs/DELIVERY.md) tracks capabilities still pending.

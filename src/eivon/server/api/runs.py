@@ -27,6 +27,7 @@ class RunInput(Contract):
     resource_id: str
     message: str = Field(default="", max_length=60_000)
     context: dict = Field(default_factory=dict)
+    input: dict | None = None
     version: int | None = None
     session_id: str | None = None
     idempotency_key: str | None = Field(default=None, max_length=100)
@@ -74,7 +75,10 @@ def create_run(payload: RunInput, request: Request, identity: Identity):
     values = payload.model_dump()
     message = values.pop("message")
     context = values.pop("context")
+    workflow_input = values.pop("input")
     values["payload"] = {"message": message, "context": context}
+    if workflow_input is not None:
+        values["payload"]["input"] = workflow_input
     return request.app.state.runs.create(identity, **values)
 
 

@@ -1,4 +1,5 @@
 """Offline release checks used before publishing an Eivon repository."""
+
 from __future__ import annotations
 
 import subprocess

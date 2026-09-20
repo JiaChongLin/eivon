@@ -163,6 +163,12 @@ class Runs:
                                 "Business context does not match the configured schema",
                                 422,
                             )
+                if resource.kind == "workflow":
+                    workflow_input = payload.get("input", {"message": payload.get("message", "")})
+                    if not Draft202012Validator(root_spec["input_schema"]).is_valid(workflow_input):
+                        raise ServiceError(
+                            "invalid_input", "Workflow input does not match its schema", 422
+                        )
                 run_id = uid()
                 if session:
                     claimed = db.execute(

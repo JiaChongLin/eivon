@@ -25,7 +25,9 @@ def export(root: Path, destination: Path) -> int:
     destination.mkdir(parents=True)
     count = 0
     for relative in tracked_files(root):
-        if relative.name in {".env", ".env.local"} or any(part in {".git", ".venv", "node_modules"} for part in relative.parts):
+        if relative.name in {".env", ".env.local"} or any(
+            part in {".git", ".venv", "node_modules"} for part in relative.parts
+        ):
             continue
         source = root / relative
         target = destination / relative

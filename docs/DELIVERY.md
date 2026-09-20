@@ -2,7 +2,7 @@
 
 Source plan: `design/open_source_agent_framework.md`. This checklist preserves the full open-source product scope.
 
-Status: runnable foundation release. The repository is still pre-1.0; the unchecked items below are deliberate release work.
+Status: runnable foundation release, still pre-1.0. Completed capabilities and outstanding release work are listed separately; passing the checks below does not establish completion of the full product plan.
 
 - [x] Independent package, CLI and documented installation
 - [x] Authentication, workspaces, membership, roles, scoped API keys and audit
@@ -16,15 +16,27 @@ Status: runnable foundation release. The repository is still pre-1.0; the unchec
 - [x] Evaluation sets, batch Runs, deterministic result scoring and release selection; side-by-side version comparison and reviewed improvement suggestions remain
 - [x] Complete console: setup, dashboard, agents, resources, playground, chat
 - [x] Complete console: runs, knowledge, evaluations, approvals, members, settings (richer administration and version comparison remain)
-- [x] Workflow baseline execution and structured visual step editor with documented supported semantics (graph canvas remains)
+- [x] Workflow execution and structured editor for Input/Tool/Prompt/Condition, typed bindings, schema validation, cancellation, persistent branching and run inspection
 - [x] HTTP, trusted Python and Streamable HTTP MCP tool integration
 - [x] Generic starter examples and two distinct synthetic domain bundles
 - [x] Docker/Compose, versioned schema bootstrap and deployment instructions
 - [x] README, architecture, API, extension, operations and contribution documentation
 - [x] License, publication inventory and clean export tooling
 - [x] Backend contracts/integration tests and frontend build
+- [x] Browser acceptance: initialization, workflow authoring, publication, waits, approval, cancellation and Run history
+- [x] GitHub Actions configuration for backend/build/browser checks (hosted execution pending publication)
 - [x] Multi-worker lease fencing, cancellation/recovery and permission/failure-mode coverage (high-load stress testing remains)
 - [x] Clean-machine startup and release artifact verification
+
+## Outstanding release work
+
+- [ ] Agent/chat, artifact delivery, resource administration and workspace isolation browser E2E
+- [ ] Isolated extension runners; Python imports currently remain trusted deployment code
+- [ ] Knowledge connection management and semantic retrieval
+- [ ] Side-by-side evaluation comparison and reviewed improvement suggestions
+- [ ] Complete administration and resource release rollback user flows
+- [ ] High-load stress measurements and production upgrade/restore rehearsal
+- [ ] Graph workflow canvas if included in the stable-release scope
 
 ## Implementation log
 
@@ -37,3 +49,13 @@ Current FarmLynk application code and pre-existing untracked files are untouched
 2026-09-20: Added the Workflow Studio for structured input/tool/condition step editing, draft saves and release publishing.
 
 2026-09-20: Created independent Eivon project in ~/work/eivon. Original scaffold retained.
+
+2026-09-20: Corrected workflow branching, empty input resume, per-step models and output templates; added typed bindings, schema validation, in-flight cancellation, full step editing, Run history inspection, six backend regression tests and a browser acceptance flow. Added public CI configuration.
+
+Verification for the workflow completion slice:
+
+- `.venv/bin/pytest -q`: 41 passed (two third-party deprecation warnings).
+- `.venv/bin/ruff check src tests scripts examples`: passed.
+- `npm run build --prefix console`: passed.
+- `EIVON_TEST_CHROME='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' npm run test:e2e --prefix console`: 1 complete browser acceptance scenario passed; a fresh temporary database/server was used.
+- GitHub Actions workflow is committed configuration; a hosted CI run has not been performed because the repository has not been published.

@@ -26,3 +26,17 @@ python scripts/export_release.py /tmp/eivon-release
 ## Pull requests
 
 Include the user-visible behavior, migration impact, exact validation commands, and security considerations. New extensions should include a synthetic test domain and avoid private production data.
+
+## Browser acceptance checks
+
+After installing the Python development dependencies in `.venv`:
+
+```sh
+npm ci --prefix console
+npm run build --prefix console
+cd console
+npx playwright install chromium
+npm run test:e2e
+```
+
+The tests launch a disposable API/database on `127.0.0.1:18787` and stop it on completion. They never connect to an existing instance. On a workstation with Chrome installed, set `EIVON_TEST_CHROME` to its executable path to use that browser instead of downloading Playwright Chromium. Failure screenshots and traces are written under `console/test-results/` (ignored by Git). The GitHub Actions workflow runs backend tests, the frontend build and browser acceptance checks.

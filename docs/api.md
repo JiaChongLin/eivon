@@ -25,3 +25,7 @@ Create a JSON evaluation set with `POST /evaluations`. Each case has an `input`,
 ## MCP tools
 
 A Tool resource may use `adapter: mcp` with `config.url` and an optional `config.tool`. Eivon sends a Streamable HTTP JSON-RPC `tools/call` request through the same outbound host allowlist, credential, timeout, result-size and approval checks as HTTP tools. Server discovery and process-hosted transports belong in deployment extensions.
+
+## Workflow execution
+
+Workflow Runs accept a separate `input` object validated against the published workflow schema. The [workflow guide](workflows.md) documents typed data bindings, conditions, input/approval resume and per-step model selection. Both Workflow Studio and Run history provide an interactive Run inspector.

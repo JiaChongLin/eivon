@@ -1,0 +1,33 @@
+name: Framework checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: console/package-lock.json
+      - run: python -m venv .venv
+      - run: .venv/bin/pip install -e '.[dev]'
+      - run: npm ci --prefix console
+      - run: .venv/bin/python scripts/check_release.py
+      - run: npx playwright install --with-deps chromium
+        working-directory: console
+      - run: npm run test:e2e --prefix console
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-failure-traces
+          path: console/test-results/
+          retention-days: 7

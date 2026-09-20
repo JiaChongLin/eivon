@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import os
 from typing import Any
 
@@ -21,6 +20,14 @@ from eivon.core.engine import (
     EngineState,
     ExecutionCancelled,
     PauseExecution,
+    cancellable,
+)
+from eivon.core.workflows import (
+    WorkflowBindingError,
+    bind_arguments,
+    json_equal,
+    render_text,
+    resolve_path,
 )
 
 from .artifacts import Artifacts
@@ -239,7 +246,8 @@ class RunWorker:
             decisions[waiting["approval_key"]] = bool(resume.get("approved"))
         saved = checkpoint.get("workflow_state", {})
         index, results = int(saved.get("index", 0)), dict(saved.get("results", {}))
-        if resume and waiting.get("kind") == "input" and waiting.get("step_id"):
+        skipped = set(saved.get("skipped", []))
+        if resume is not None and waiting.get("kind") == "input" and waiting.get("step_id"):
             results[waiting["step_id"]] = resume
             index += 1
 
@@ -257,42 +265,36 @@ class RunWorker:
             emit=emit_event,
             knowledge_search=self.knowledge.search_for_run if self.knowledge else None,
         )
-        model = None
-        for step in root["spec"]["steps"]:
-            if step["type"] == "prompt":
-                reference = step["model_ref"]
-                model_resource = resources.get(f"{reference['id']}@{reference['version']}")
-                if model_resource:
-                    spec = ModelSpec.model_validate(model_resource["spec"])
-                    credential = self.security.credential_value(
-                        item["workspace_id"], spec.credential_id
-                    )
-                    model = (
-                        DemoModel()
-                        if spec.provider == "demo"
-                        else CompatibleModel(spec, credential, self.settings.allowed_hosts)
-                    )
-                break
         steps = root["spec"]["steps"]
+        scope = {
+            "input": item["input"].get("input", {"message": item["input"].get("message", "")}),
+            "context": context.business_context,
+            "steps": results,
+        }
+
+        async def cancelled():
+            return self.runs.cancelled(item["id"], self.worker_id)
+
+        def workflow_state():
+            return {"index": index, "results": results, "skipped": sorted(skipped)}
+
         heartbeat = asyncio.create_task(self._heartbeat(item["id"]))
         try:
             while index < len(steps):
                 if self.runs.cancelled(item["id"], self.worker_id):
                     raise ExecutionCancelled()
                 step = steps[index]
-                if step["type"] == "condition":
-                    value = results.get(step["value_path"].split(".")[-1])
-                    if value == step.get("equals"):
-                        skip = set(step.get("skip_step_ids", []))
-                        index = next(
-                            (
-                                pos
-                                for pos, candidate in enumerate(steps)
-                                if pos > index and candidate["id"] in skip
-                            ),
-                            index + 1,
-                        )
-                        continue
+                if step["id"] in skipped:
+                    await emit_event("workflow.step.skipped", {"step_id": step["id"]})
+                elif step["type"] == "condition":
+                    value = resolve_path(step["value_path"], scope)
+                    matched = json_equal(value, step.get("equals"))
+                    if matched:
+                        skipped.update(step.get("skip_step_ids", []))
+                    results[step["id"]] = {"matched": matched}
+                    await emit_event(
+                        "workflow.condition", {"step_id": step["id"], "matched": matched}
+                    )
                 elif step["type"] == "input":
                     raise PauseExecution(
                         "waiting_input",
@@ -308,32 +310,66 @@ class RunWorker:
                     resource = resources.get(f"{ref['id']}@{ref['version']}")
                     if not resource:
                         raise RuntimeError("Workflow tool dependency is missing")
-                    result = await tool_runtime.invoke(
-                        ToolCall(
-                            id=step["id"],
-                            name=tool_name(resource),
-                            arguments=step.get("arguments", {}),
-                        )
+                    await emit_event(
+                        "workflow.step.started", {"step_id": step["id"], "type": "tool"}
+                    )
+                    result = await cancellable(
+                        tool_runtime.invoke(
+                            ToolCall(
+                                id=step["id"],
+                                name=tool_name(resource),
+                                arguments=bind_arguments(step.get("arguments", {}), scope),
+                            )
+                        ),
+                        cancelled,
+                        resource["spec"]["timeout_seconds"] + 1,
                     )
                     results[step["id"]] = result.model_dump(mode="json")
+                    await emit_event(
+                        "workflow.step.completed",
+                        {"step_id": step["id"], "success": result.success},
+                    )
                 elif step["type"] == "prompt":
-                    if model is None:
-                        raise RuntimeError("Workflow prompt step has no model")
-                    message = step["template"].replace(
-                        "{{steps}}", json.dumps(results, ensure_ascii=False)
+                    reference = step["model_ref"]
+                    model_resource = resources.get(f"{reference['id']}@{reference['version']}")
+                    if model_resource is None:
+                        raise RuntimeError("Workflow prompt dependency is missing")
+                    spec = ModelSpec.model_validate(model_resource["spec"])
+                    credential = self.security.credential_value(
+                        item["workspace_id"], spec.credential_id
                     )
-                    response = await model.complete(
-                        [ModelMessage(role="user", content=message)],
-                        tool_runtime.definitions(),
-                        emit_event,
+                    model = (
+                        DemoModel()
+                        if spec.provider == "demo"
+                        else CompatibleModel(spec, credential, self.settings.allowed_hosts)
                     )
+                    await emit_event(
+                        "workflow.step.started", {"step_id": step["id"], "type": "prompt"}
+                    )
+                    # Prompt steps generate text. Side effects belong to explicit Tool steps.
+                    response = await cancellable(
+                        model.complete(
+                            [
+                                ModelMessage(
+                                    role="user", content=render_text(step["template"], scope)
+                                )
+                            ],
+                            [],
+                            emit_event,
+                        ),
+                        cancelled,
+                        spec.timeout_seconds,
+                    )
+                    if response.tool_calls:
+                        raise RuntimeError("Prompt step unexpectedly requested tools")
                     results[step["id"]] = {"text": response.content, "usage": response.usage}
+                    await emit_event("workflow.step.completed", {"step_id": step["id"]})
                 index += 1
                 self.runs.save_checkpoint(
                     item["id"],
                     self.worker_id,
                     {
-                        "workflow_state": {"index": index, "results": results},
+                        "workflow_state": workflow_state(),
                         "decisions": decisions,
                     },
                 )
@@ -341,7 +377,10 @@ class RunWorker:
                 item["id"],
                 self.worker_id,
                 "completed",
-                output={"text": json.dumps(results, ensure_ascii=False), "steps": results},
+                output={
+                    "text": render_text(root["spec"]["output_template"], scope),
+                    "steps": results,
+                },
                 checkpoint={},
             )
         except PauseExecution as pause:
@@ -350,7 +389,7 @@ class RunWorker:
                 self.worker_id,
                 pause.status,
                 checkpoint={
-                    "workflow_state": {"index": index, "results": results},
+                    "workflow_state": workflow_state(),
                     "decisions": decisions,
                     "waiting": pause.payload,
                 },
@@ -360,12 +399,16 @@ class RunWorker:
             self.runs.finish(
                 item["id"], self.worker_id, "cancelled", output={"steps": results}, checkpoint={}
             )
+        except LeaseLost:
+            raise
         except Exception as exc:
             self.runs.finish(
                 item["id"],
                 self.worker_id,
                 "failed",
-                error=f"Workflow failed ({type(exc).__name__})",
+                error=str(exc)
+                if isinstance(exc, WorkflowBindingError)
+                else f"Workflow failed ({type(exc).__name__})",
                 output={"steps": results},
                 checkpoint={},
             )

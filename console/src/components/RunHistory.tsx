@@ -1,0 +1,30 @@
+import { useEffect, useState } from "react";
+import { api } from "../api";
+import type { Run } from "../api";
+import { RunInspector } from "./RunInspector";
+
+export function RunHistory() {
+  const [runs, setRuns] = useState<Run[]>([]);
+  const [selected, setSelected] = useState("");
+  const [status, setStatus] = useState("");
+  const [offset, setOffset] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [refresh, setRefresh] = useState(0);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    const controller = new AbortController();
+    setError("");
+    api<{ items: Run[]; total: number }>(`/runs?offset=${offset}&limit=25${status ? `&status=${status}` : ""}`, { signal: controller.signal })
+      .then((result) => { setRuns(result.items); setTotal(result.total); })
+      .catch((e) => { if (!controller.signal.aborted) setError(e.message); });
+    return () => controller.abort();
+  }, [offset, status, refresh]);
+  return <section>
+    <div className="toolbar"><div><span className="eyebrow">OBSERVABILITY</span><h2 className="section-title">Run history</h2></div><button className="button" onClick={() => setRefresh((value) => value + 1)}>Refresh</button></div>
+    {error && <div role="alert" className="notice error">{error}</div>}
+    <label className="run-filter">Status <select value={status} onChange={(e) => { setStatus(e.target.value); setOffset(0); }}><option value="">All statuses</option>{["queued", "running", "waiting_input", "waiting_approval", "cancelling", "completed", "failed", "cancelled"].map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
+    <div className="run-table"><div className="table-head"><span>RUN</span><span>STATUS</span><span>VERSION</span><span>CREATED</span></div>{!runs.length && <div className="empty-row">No matching runs.</div>}{runs.map((run) => <button className={`table-row run-history-row ${selected === run.id ? "active" : ""}`} key={run.id} onClick={() => setSelected(run.id)} aria-label={`Inspect run ${run.id}`}><span className="mono">{run.id.slice(0, 12)}</span><span className="badge">{run.status}</span><span>v{run.resource_version}</span><span>{new Date(run.created_at * 1000).toLocaleString()}</span></button>)}</div>
+    <div className="workflow-actions"><button className="text-button" disabled={offset === 0} onClick={() => setOffset((value) => Math.max(0, value - 25))}>Previous</button><span className="muted">{total ? offset + 1 : 0}–{Math.min(offset + runs.length, total)} of {total}</span><button className="text-button" disabled={offset + runs.length >= total} onClick={() => setOffset((value) => value + 25)}>Next</button></div>
+    {selected && <RunInspector key={selected} runId={selected} />}
+  </section>;
+}
