@@ -261,6 +261,35 @@ class EvaluationResult(Base):
     created_at: Mapped[float] = mapped_column(Float, default=time.time)
 
 
+class EvaluationReview(Base):
+    __tablename__ = "evaluation_reviews"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=uid)
+    result_id: Mapped[str] = mapped_column(ForeignKey("evaluation_results.id"), index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    score: Mapped[float] = mapped_column(Float)
+    note: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[float] = mapped_column(Float, default=time.time)
+
+
+class ImprovementProposal(Base):
+    __tablename__ = "improvement_proposals"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=uid)
+    workspace_id: Mapped[str] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    job_id: Mapped[str] = mapped_column(ForeignKey("jobs.id"), index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    resource_id: Mapped[str] = mapped_column(ForeignKey("resources.id"))
+    base_revision: Mapped[int] = mapped_column(Integer)
+    base_spec: Mapped[dict] = mapped_column(JSON)
+    candidate_spec: Mapped[dict] = mapped_column(JSON)
+    rationale: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(20), default="pending")
+    reviewer_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    review_note: Mapped[str] = mapped_column(Text, default="")
+    applied_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[float] = mapped_column(Float, default=time.time)
+    reviewed_at: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+
 class LearningItem(Base):
     __tablename__ = "learning_items"
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=uid)

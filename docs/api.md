@@ -20,7 +20,7 @@ Knowledge collections and documents use `/knowledge/collections` and `/knowledge
 
 ## Evaluations
 
-Create a JSON evaluation set with `POST /evaluations`. Each case has an `input`, an optional `context`, an `expected` string and a `match` mode (`contains`, `exact` or `nonempty`). `POST /evaluations/{id}/run` creates one immutable Run per case and returns a durable evaluation Job. Poll `/evaluation-jobs/{id}` and inspect `/evaluations/{id}` for per-case results and the aggregate score.
+Create a JSON evaluation set with `POST /evaluations`. Each case has an `input`, an optional `context`, an `expected` string and a `match` mode (`contains`, `exact` or `nonempty`). `POST /evaluations/{id}/run` creates one immutable Run per case and returns a durable evaluation Job. Poll `/evaluation-jobs/{id}` for that exact batch’s case results and aggregate score. `/evaluations/{id}/jobs` lists paginated history; `/evaluation-comparison` compares two compatible completed batches. Human reviews and reviewed Prompt/Skill candidates are documented in the [evaluation guide](evaluations.md).
 
 ## MCP tools
 

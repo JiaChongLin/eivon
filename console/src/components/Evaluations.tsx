@@ -1,0 +1,98 @@
+import { useEffect, useState } from "react";
+import { api } from "../api";
+import type { Identity, Resource } from "../api";
+
+type Review = { id: string; user_id: string; score: number; note: string };
+type Result = { id: string; case_index: number; input: { input: string; match: string }; expected: string; actual: string; score: number; status: string; reviews: Review[] };
+type Job = { id: string; status: string; created_at: number; resource_id?: string; resource_version?: number; input?: { resource_id: string; resource_version: number }; output: { score?: number; passed?: number; count?: number }; results: Result[] };
+type TestSet = { id: string; name: string };
+type Target = { id: string; name: string; kind: string; revision: number; version: number; draft: Record<string, unknown>; archived: boolean };
+type Proposal = { id: string; resource_id: string; status: string; rationale: string; base_revision: number; base_spec: Record<string, unknown>; candidate_spec: Record<string, unknown>; review_note: string; applied_revision?: number };
+type Reflection = { summary: string; targets: Target[]; proposals: Proposal[]; failures: { case_index: number; status: string; expected: string; actual: string }[] };
+type Comparison = { score_delta: number; improved: number; regressed: number; baseline: Job; candidate: Job; cases: { case_index: number; baseline: Result; candidate: Result; delta: number; change: string }[] };
+const terminal = (status: string) => ["completed", "timed_out", "failed"].includes(status);
+const percentage = (value?: number) => value === undefined ? "—" : `${Math.round(value * 100)}%`;
+
+export function Evaluations({ identity }: { identity: Identity }) {
+  const write = identity.permissions.includes("write"); const execute = identity.permissions.includes("execute");
+  const [sets, setSets] = useState<TestSet[]>([]); const [agents, setAgents] = useState<Resource[]>([]);
+  const [selectedSet, setSelectedSet] = useState(""); const [selectedAgent, setSelectedAgent] = useState("");
+  const [versions, setVersions] = useState<number[]>([]); const [version, setVersion] = useState("");
+  const [name, setName] = useState(""); const [cases, setCases] = useState('[{"input":"hello","expected":"hello","match":"contains"}]');
+  const [jobs, setJobs] = useState<Job[]>([]); const [total, setTotal] = useState(0); const [offset, setOffset] = useState(0);
+  const [selectedJob, setSelectedJob] = useState(""); const [job, setJob] = useState<Job | null>(null);
+  const [baseline, setBaseline] = useState(""); const [candidate, setCandidate] = useState(""); const [comparison, setComparison] = useState<Comparison | null>(null);
+  const [refresh, setRefresh] = useState(0); const [error, setError] = useState(""); const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    Promise.all([api<{ items: TestSet[] }>("/evaluations?limit=200", { signal: controller.signal }), api<{ items: Resource[] }>("/resources?kind=agent&limit=200", { signal: controller.signal })]).then(([a, b]) => {
+      setSets(a.items); setAgents(b.items.filter((item) => item.active_version));
+      setSelectedSet((value) => value || a.items[0]?.id || ""); setSelectedAgent((value) => value || b.items.find((item) => item.active_version)?.id || "");
+    }).catch((e) => { if (!controller.signal.aborted) setError(e.message); });
+    return () => controller.abort();
+  }, [refresh]);
+  useEffect(() => {
+    const controller = new AbortController(); setVersions([]); setVersion("");
+    if (selectedAgent) api<{ items: { version: number }[] }>(`/resources/${selectedAgent}/versions`, { signal: controller.signal }).then((value) => { setVersions(value.items.map((item) => item.version)); setVersion(String(value.items[0]?.version || "")); }).catch((e) => { if (!controller.signal.aborted) setError(e.message); });
+    return () => controller.abort();
+  }, [selectedAgent]);
+  useEffect(() => {
+    const controller = new AbortController(); let timer: number | undefined;
+    async function load() {
+      if (!selectedSet) return;
+      try {
+        const value = await api<{ items: Job[]; total: number }>(`/evaluations/${selectedSet}/jobs?offset=${offset}&limit=25`, { signal: controller.signal });
+        setJobs(value.items); setTotal(value.total);
+        if (value.items.some((item) => !terminal(item.status))) timer = window.setTimeout(load, 600);
+      } catch (e) { if (!controller.signal.aborted) setError((e as Error).message); }
+    }
+    void load(); return () => { controller.abort(); window.clearTimeout(timer); };
+  }, [selectedSet, offset, refresh]);
+  useEffect(() => {
+    const controller = new AbortController(); let timer: number | undefined; setJob(null);
+    async function poll() {
+      if (!selectedJob) return;
+      try {
+        const value = await api<Job>(`/evaluation-jobs/${selectedJob}`, { signal: controller.signal }); setJob(value);
+        if (!terminal(value.status)) timer = window.setTimeout(poll, 500);
+      } catch (e) { if (!controller.signal.aborted) setError((e as Error).message); }
+    }
+    void poll(); return () => { controller.abort(); window.clearTimeout(timer); };
+  }, [selectedJob, refresh]);
+  async function perform(action: () => Promise<void>) {
+    setBusy(true); setError(""); try { await action(); } catch (e) { if ((e as Error).name !== "AbortError") setError((e as Error).message); } finally { setBusy(false); }
+  }
+  function chooseSet(id: string) { setSelectedSet(id); setOffset(0); setJobs([]); setJob(null); setSelectedJob(""); setBaseline(""); setCandidate(""); setComparison(null); }
+  const complete = jobs.filter((item) => ["completed", "timed_out"].includes(item.status));
+  return <section className="evaluations">
+    <div className="toolbar"><h2 className="section-title">Evaluation center</h2><button className="text-button" onClick={() => setRefresh((value) => value + 1)}>Refresh evaluations</button></div>
+    {error && <div role="alert" className="notice error">{error}</div>}
+    <div className="knowledge-grid">
+      {write && <form className="settings-card" aria-label="Create evaluation set" onSubmit={(event) => { event.preventDefault(); void perform(async () => { const item = await api<TestSet>("/evaluations", { method: "POST", body: JSON.stringify({ name, cases: JSON.parse(cases) }) }); setName(""); chooseSet(item.id); setRefresh((value) => value + 1); }); }}><h3>Create test set</h3><label>Name<input required value={name} onChange={(e) => setName(e.target.value)} /></label><label>Cases JSON<textarea required value={cases} onChange={(e) => setCases(e.target.value)} /></label><p className="muted">Each case has input, expected and match: contains, exact or nonempty. Saved sets are immutable.</p><button className="button" disabled={busy}>Save test set</button></form>}
+      <form className="settings-card" aria-label="Run evaluation" onSubmit={(event) => { event.preventDefault(); void perform(async () => { const item = await api<Job>(`/evaluations/${selectedSet}/run`, { method: "POST", body: JSON.stringify({ resource_id: selectedAgent, version: Number(version) }) }); setSelectedJob(item.id); setOffset(0); setRefresh((value) => value + 1); }); }}><h3>Published release</h3><label>Test set<select required value={selectedSet} onChange={(e) => chooseSet(e.target.value)}><option value="">Choose test set</option>{sets.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label>Published Agent<select required value={selectedAgent} onChange={(e) => setSelectedAgent(e.target.value)}><option value="">Choose Agent</option>{agents.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label>Release version<select required value={version} onChange={(e) => setVersion(e.target.value)}><option value="">Choose version</option>{versions.map((value) => <option key={value} value={value}>v{value}</option>)}</select></label>{execute && <button className="button" disabled={busy || !version || !selectedSet}>Run evaluation</button>}</form>
+    </div>
+    <section className="settings-card" aria-label="Evaluation history"><h3>Batch history</h3><p className="muted">Administrators can inspect all workspace batches; other members see their own executions.</p>{jobs.map((item) => <button key={item.id} className={`eval-job ${selectedJob === item.id ? "selected" : ""}`} aria-label={`Inspect evaluation ${item.id}`} onClick={() => setSelectedJob(item.id)}><span>v{item.resource_version} · {agents.find((agent) => agent.id === item.resource_id)?.name || item.resource_id}</span><span>{item.status} · {percentage(item.output.score)}</span><small>{new Date(item.created_at * 1000).toLocaleString()} · {item.id.slice(0, 8)}</small></button>)}{!jobs.length && <p className="muted">No evaluation batches yet.</p>}<div className="workflow-actions"><button className="text-button" disabled={!offset} onClick={() => setOffset((value) => Math.max(0, value - 25))}>Previous batches</button><span>{total} batches</span><button className="text-button" disabled={offset + jobs.length >= total} onClick={() => setOffset((value) => value + 25)}>Next batches</button></div></section>
+    {job && <section className="settings-card" aria-label="Evaluation details"><div className="toolbar"><h3>Batch {job.id.slice(0, 8)} · v{job.input?.resource_version}</h3><span className="badge" role="status">{job.status}</span></div><p>Rule score: {percentage(job.output.score)} · {job.output.passed ?? 0}/{job.output.count ?? 0} passed</p>{job.results.map((result) => <ResultCard key={result.id} result={result} jobId={job.id} canWrite={write} onChange={() => setRefresh((value) => value + 1)} />)}{["completed", "timed_out"].includes(job.status) && <Improvement key={job.id} jobId={job.id} identity={identity} />}</section>}
+    <form className="settings-card" aria-label="Compare evaluations" onSubmit={(event) => { event.preventDefault(); void perform(async () => { setComparison(null); setComparison(await api<Comparison>(`/evaluation-comparison?baseline=${baseline}&candidate=${candidate}`)); }); }}><h3>Compare releases</h3><p className="muted">Select completed batches from the same Agent and test set. Rule scores remain separate from human review.</p><div className="knowledge-grid"><label>Baseline batch<select required value={baseline} onChange={(e) => { setBaseline(e.target.value); setComparison(null); }}><option value="">Choose baseline</option>{complete.map((item) => <option key={item.id} value={item.id}>v{item.resource_version} · {item.id.slice(0, 8)} · {percentage(item.output.score)}</option>)}</select></label><label>Candidate batch<select required value={candidate} onChange={(e) => { setCandidate(e.target.value); setComparison(null); }}><option value="">Choose candidate</option>{complete.map((item) => <option key={item.id} value={item.id}>v{item.resource_version} · {item.id.slice(0, 8)} · {percentage(item.output.score)}</option>)}</select></label></div><button className="button" disabled={busy || !baseline || !candidate || baseline === candidate}>Compare batches</button></form>
+    {comparison && <section className="settings-card" aria-label="Evaluation comparison"><h3>v{comparison.baseline.input?.resource_version} → v{comparison.candidate.input?.resource_version}</h3><p>Score change: {percentage(comparison.score_delta)} · {comparison.improved} improved · {comparison.regressed} regressed</p>{comparison.cases.map((item) => <article key={item.case_index} className="eval-case"><h4>Case {item.case_index + 1} · {item.change}</h4><p>{item.baseline.input.input}</p><p className="muted">Expected: {item.baseline.expected}</p><div className="knowledge-grid">{[item.baseline, item.candidate].map((result, index) => <div key={index}><strong>{index ? "Candidate" : "Baseline"} · {result.status} · {percentage(result.score)}</strong><pre>{result.actual}</pre>{result.reviews.map((review) => <p key={review.id} className="muted">Human: {percentage(review.score)} — {review.note}</p>)}</div>)}</div></article>)}</section>}
+  </section>;
+}
+
+function ResultCard({ result, jobId, canWrite, onChange }: { result: Result; jobId: string; canWrite: boolean; onChange: () => void }) {
+  const [score, setScore] = useState("1"); const [note, setNote] = useState(""); const [error, setError] = useState(""); const [busy, setBusy] = useState(false);
+  return <article className="eval-case" aria-label={`Evaluation case ${result.case_index + 1}`}><h4>Case {result.case_index + 1} · {result.status} · rule {percentage(result.score)}</h4><p>{result.input.input}</p><p className="muted">{result.input.match} · Expected: {result.expected}</p><pre>{result.actual || "No output"}</pre>{result.reviews.map((item) => <p key={item.id}>Human review: {percentage(item.score)} — {item.note}</p>)}{error && <div role="alert" className="notice error">{error}</div>}{canWrite && <details><summary>Add human review</summary><form onSubmit={async (event) => { event.preventDefault(); setBusy(true); setError(""); try { await api(`/evaluation-jobs/${jobId}/results/${result.id}/reviews`, { method: "POST", body: JSON.stringify({ score: Number(score), note }) }); setNote(""); onChange(); } catch (e) { setError((e as Error).message); } finally { setBusy(false); } }}><label>Human score<input type="number" required min={0} max={1} step={0.1} value={score} onChange={(e) => setScore(e.target.value)} /></label><label>Review note<textarea required maxLength={4000} value={note} onChange={(e) => setNote(e.target.value)} /></label><button className="button" disabled={busy}>Save human review</button></form></details>}</article>;
+}
+
+function Improvement({ jobId, identity }: { jobId: string; identity: Identity }) {
+  const [data, setData] = useState<Reflection | null>(null); const [targetId, setTargetId] = useState(""); const [text, setText] = useState(""); const [rationale, setRationale] = useState("");
+  const [error, setError] = useState(""); const [message, setMessage] = useState(""); const [busy, setBusy] = useState(false); const [refresh, setRefresh] = useState(0);
+  useEffect(() => { const controller = new AbortController(); api<Reflection>(`/evaluation-jobs/${jobId}/reflection`, { signal: controller.signal }).then(setData).catch((e) => { if (!controller.signal.aborted) setError(e.message); }); return () => controller.abort(); }, [jobId, refresh]);
+  const target = data?.targets.find((item) => item.id === targetId);
+  return <section className="improvement" aria-label="Reflection and improvements"><h3>Reflection and improvements</h3>{error && <div role="alert" className="notice error">{error}</div>}{message && <div role="status" className="notice">{message}</div>}<p>{data?.summary}</p><p className="muted">This report summarizes test evidence. Author an instruction candidate for review; approval updates only its draft. Publish the dependency and a new Agent release, then rerun this test set to measure the effect.</p>{identity.permissions.includes("write") && <form aria-label="Propose improvement" onSubmit={async (event) => { event.preventDefault(); if (!target) return; setBusy(true); setError(""); setMessage(""); try { await api(`/evaluation-jobs/${jobId}/proposals`, { method: "POST", body: JSON.stringify({ resource_id: target.id, revision: target.revision, text, rationale }) }); setRationale(""); setTargetId(""); setText(""); setMessage("Candidate submitted for administrator review"); setRefresh((value) => value + 1); } catch (e) { setError((e as Error).message); } finally { setBusy(false); } }}><label>Instruction resource<select required value={targetId} onChange={(e) => { setTargetId(e.target.value); const item = data?.targets.find((row) => row.id === e.target.value); setText(String(item?.draft[item.kind === "prompt" ? "template" : "body"] || "")); }}><option value="">Choose a Prompt or Skill</option>{data?.targets.filter((item) => !item.archived).map((item) => <option key={item.id} value={item.id}>{item.name} · evaluated v{item.version} · draft r{item.revision}</option>)}</select></label>{target && <><label>Current draft instructions<textarea readOnly value={String(target.draft[target.kind === "prompt" ? "template" : "body"] || "")} /></label><label>Proposed instructions<textarea required value={text} onChange={(e) => setText(e.target.value)} /></label><label>Rationale<textarea required maxLength={4000} value={rationale} onChange={(e) => setRationale(e.target.value)} /></label><button className="button" disabled={busy}>Submit candidate</button></>}{data && !data.targets.length && <p className="muted">This release has no Prompt or Skill dependency to improve.</p>}</form>}{data?.proposals.map((item) => <ProposalCard key={item.id} item={item} jobId={jobId} canReview={identity.permissions.includes("admin")} onChange={() => setRefresh((value) => value + 1)} />)}</section>;
+}
+
+function ProposalCard({ item, jobId, canReview, onChange }: { item: Proposal; jobId: string; canReview: boolean; onChange: () => void }) {
+  const [note, setNote] = useState(""); const [busy, setBusy] = useState(false); const [error, setError] = useState("");
+  async function decide(decision: string) { setBusy(true); setError(""); try { await api(`/evaluation-jobs/${jobId}/proposals/${item.id}/review`, { method: "POST", body: JSON.stringify({ decision, note }) }); onChange(); } catch (e) { setError((e as Error).message); } finally { setBusy(false); } }
+  return <article className="eval-case" aria-label={`Improvement ${item.id}`}><h4>Candidate · {item.status}</h4><p>{item.rationale}</p><p className="muted">Based on draft r{item.base_revision}{item.applied_revision && ` · applied to draft r${item.applied_revision}`}</p><details><summary>Inspect proposed change</summary><div className="knowledge-grid"><div><strong>Before</strong><pre>{JSON.stringify(item.base_spec, null, 2)}</pre></div><div><strong>After</strong><pre>{JSON.stringify(item.candidate_spec, null, 2)}</pre></div></div></details>{item.review_note && <p>Decision: {item.review_note}</p>}{error && <div role="alert" className="notice error">{error}</div>}{canReview && item.status === "pending" && <div><label>Decision note<textarea required maxLength={4000} value={note} onChange={(e) => setNote(e.target.value)} /></label><div className="workflow-actions"><button className="button" disabled={busy || !note.trim()} onClick={() => void decide("accepted")}>Accept into draft</button><button className="text-button" disabled={busy || !note.trim()} onClick={() => void decide("rejected")}>Reject candidate</button></div></div>}</article>;
+}

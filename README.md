@@ -19,7 +19,7 @@ Console screenshot from the deterministic browser acceptance fixture. See the [c
 - Durable Runs with ordered events, cancellation, approval/input waiting, resume support and worker leases.
 - Workspace-scoped resources, roles, API keys, CSRF-protected sessions, encrypted credentials and audit events.
 - A dark management console with setup, overview, resource authoring, Agent publishing, Playground, Run history, Knowledge indexing/search and workspace administration (switching, members, credentials, API keys and audit).
-- A lightweight evaluation loop for JSON test sets, batch Runs and exact/contains/nonempty result scoring.
+- An evaluation center with immutable test sets, historical batches, version comparison, rule scores, human reviews and instruction candidates that require approval before updating a draft.
 - SQLite for a zero-dependency local instance and PostgreSQL for deployment.
 - A deployment-time Python extension SDK; HTTP tools are configured with explicit server allowlists.
 
@@ -97,3 +97,5 @@ Workflow authoring, branching, input/approval waits and execution inspection are
 The [resource guide](docs/resources.md) covers capability authoring, immutable releases, specification comparisons, rollback and archive/restore.
 
 See [workspace administration](docs/administration.md) for scope selection, member roles, credential rotation and key revocation.
+
+The [evaluation guide](docs/evaluations.md) covers release comparison, human scoring and reviewed Prompt/Skill improvements.

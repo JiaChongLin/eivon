@@ -1,8 +1,7 @@
 """Small, explicit schema migration boundary for self-hosted deployments.
 
-The first release has one bootstrap migration because the project is new. Keeping
-the version gate in one module means later releases can add numbered, idempotent
-migrations without silently relying on ``create_all`` for an existing database.
+The version gate rejects newer schemas before any schema changes. Known releases
+receive additive tables and the legacy result-to-job column migration.
 """
 
 from __future__ import annotations
@@ -12,17 +11,25 @@ from sqlalchemy.exc import IntegrityError
 
 from .db import Base, Database, Meta
 
-CURRENT_SCHEMA_VERSION = 3
+CURRENT_SCHEMA_VERSION = 4
 
 
 def upgrade(database: Database) -> int:
     """Apply all migrations and return the resulting schema version.
 
     Version 1 is the initial metadata bootstrap, version 2 adds persisted
-    evaluation results, and version 3 links results to durable evaluation Jobs.
+    evaluation results, version 3 links results to durable evaluation Jobs, and
+    version 4 adds append-only human reviews and reviewed improvement proposals.
     Existing databases are upgraded idempotently; unknown versions fail closed.
     """
 
+    if inspect(database.engine).has_table(Meta.__tablename__):
+        with database.transaction() as session:
+            version = session.get(Meta, "schema_version")
+            if version is not None and version.value not in {"1", "2", "3", "4"}:
+                raise RuntimeError(
+                    f"Unsupported database schema version; expected {CURRENT_SCHEMA_VERSION}"
+                )
     Base.metadata.create_all(database.engine)
     columns = {
         column["name"] for column in inspect(database.engine).get_columns("evaluation_results")
@@ -42,7 +49,7 @@ def upgrade(database: Database) -> int:
             version = session.get(Meta, "schema_version")
             if version is None:
                 session.add(Meta(key="schema_version", value=str(CURRENT_SCHEMA_VERSION)))
-            elif int(version.value) in {1, 2}:
+            elif int(version.value) in {1, 2, 3}:
                 version.value = str(CURRENT_SCHEMA_VERSION)
             if session.get(Meta, "initialized") is None:
                 session.add(Meta(key="initialized", value="false"))

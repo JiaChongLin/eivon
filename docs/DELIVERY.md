@@ -13,9 +13,9 @@ Status: runnable foundation release, still pre-1.0. Completed capabilities and o
 - [x] Execution-time authorization, tool approvals and safe extension boundaries (trusted Python extensions remain deployment-scoped)
 - [x] Durable runs, ordered events, sessions, artifacts and worker coordination
 - [x] Knowledge ingestion, lexical retrieval and source metadata; semantic citations and connection management remain
-- [x] Evaluation sets, batch Runs, deterministic result scoring and release selection; side-by-side version comparison and reviewed improvement suggestions remain
+- [x] Evaluation sets, historical batches, deterministic scoring, human reviews, version comparison and reviewed instruction candidates; model-generated suggestions remain
 - [x] Complete console: setup, dashboard, agents, resources, playground, chat
-- [x] Complete console: runs, knowledge, evaluations, approvals, members, settings (evaluation version comparison remains)
+- [x] Complete console: runs, knowledge, evaluations, approvals, members, settings (model-generated improvement suggestions remain)
 - [x] Workflow execution and structured editor for Input/Tool/Prompt/Condition, typed bindings, schema validation, cancellation, persistent branching and run inspection
 - [x] HTTP, trusted Python and Streamable HTTP MCP tool integration
 - [x] Generic starter examples and two distinct synthetic domain bundles
@@ -35,7 +35,8 @@ Status: runnable foundation release, still pre-1.0. Completed capabilities and o
 - [x] Workspace switching, create/rename, scoped file delivery and resource/conversation isolation browser E2E
 - [ ] Isolated extension runners; Python imports currently remain trusted deployment code
 - [ ] Knowledge connection management and semantic retrieval
-- [ ] Side-by-side evaluation comparison and reviewed improvement suggestions
+- [x] Side-by-side evaluation comparison, failure evidence, human scoring and reviewed instruction candidates
+- [ ] Model-generated failure analysis and instruction suggestions
 - [x] Resource release rollback and immutable version inspection user flows
 - [x] Member add/role/remove, credential rotation, API-key issue/revoke and workspace audit user flows
 - [ ] High-load stress measurements and production upgrade/restore rehearsal
@@ -72,3 +73,7 @@ Resource-management verification: `.venv/bin/pytest -q` passed 48 tests (two dep
 2026-09-20: Added workspace selection/create/rename, member role/removal controls, credential rotation, configurable API key expiry/permissions/revocation and paginated audit inspection. Console requests and generated-file downloads carry explicit workspace scope; switching resets page state and cancels pending requests. API-key identity lists only its own workspace. Removed members can discover session CSRF and sign out without workspace access.
 
 Workspace-administration verification: `.venv/bin/pytest -q` passed 51 tests (two dependency deprecation warnings and a non-failing cache write warning in the restricted test invocation); `RUFF_CACHE_DIR=/tmp/eivon-ruff .venv/bin/ruff check src tests scripts examples` and `npm run build --prefix console` passed. `EIVON_TEST_CHROME='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' npm run test:e2e --prefix console` passed all 7 browser scenarios against a disposable server, including non-default-workspace Unicode file download, resource/conversation isolation and membership removal. Hosted CI and live provider checks remain unperformed.
+
+2026-09-20: Replaced the latest-result-only evaluation view with paginated batch history, exact-batch case inspection and side-by-side release comparison. Added append-only human scores, failure-evidence summaries and Prompt/Skill instruction candidates. Administrator acceptance checks the frozen draft revision and applies the draft update and review transition atomically; published resources and permissions remain unchanged. Added schema v4 additive tables and rejected future schema versions before DDL. Model-generated causal analysis and suggestions are explicitly still pending.
+
+Evaluation-center verification: `.venv/bin/pytest -q` passed 56 tests (two dependency deprecation warnings); after strengthening the scoped-key authorization assertion, `.venv/bin/pytest -q tests/test_evaluation_review.py` passed all 5 targeted tests. `.venv/bin/ruff check src tests scripts examples`, `npm run build --prefix console` and `git diff --check` passed. `EIVON_TEST_CHROME='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' npm run test:e2e --prefix console` passed all 8 browser scenarios, including historical batch comparison, independent human scoring, accepted-draft persistence and immutable published instructions. Inspected the rendered evaluation-center screenshot. Tests used SQLite and deterministic/demo model responses; PostgreSQL upgrade rehearsal, live-model quality validation and hosted CI are not claimed.
