@@ -12,7 +12,7 @@ Status: runnable foundation release, still pre-1.0. Completed capabilities and o
 - [x] Agent loop with model streaming, tools, budgets, cancellation and checkpoints
 - [x] Execution-time authorization, tool approvals and safe extension boundaries (trusted Python extensions remain deployment-scoped)
 - [x] Durable runs, ordered events, sessions, artifacts and worker coordination
-- [x] Knowledge ingestion, connection bindings, source metadata and lexical/semantic/hybrid retrieval; remote synchronization and semantic citations remain
+- [x] Knowledge ingestion, connection bindings, bounded JSON synchronization, source metadata and lexical/semantic/hybrid retrieval; connector-specific adapters and provider embeddings remain
 - [x] Evaluation sets, historical batches, deterministic scoring, human reviews, version comparison and reviewed instruction candidates; model-generated suggestions remain
 - [x] Complete console: setup, dashboard, agents, resources, playground, chat
 - [x] Complete console: runs, knowledge, evaluations, approvals, members, settings (model-generated improvement suggestions remain)
@@ -25,7 +25,7 @@ Status: runnable foundation release, still pre-1.0. Completed capabilities and o
 - [x] Backend contracts/integration tests and frontend build
 - [x] Browser acceptance: initialization, workflow authoring, publication, waits, approval, cancellation and Run history
 - [x] GitHub Actions configuration for backend/build/browser checks (hosted execution pending publication)
-- [x] Multi-worker lease fencing, cancellation/recovery and permission/failure-mode coverage (high-load stress testing remains)
+- [x] Multi-worker lease fencing, cancellation/recovery, permission/failure-mode coverage and repeatable high-load SQLite stress evidence
 - [x] Clean-machine startup and release artifact verification
 
 ## Outstanding release work
@@ -41,7 +41,8 @@ Status: runnable foundation release, still pre-1.0. Completed capabilities and o
 - [ ] Model-generated failure analysis and instruction suggestions
 - [x] Resource release rollback and immutable version inspection user flows
 - [x] Member add/role/remove, credential rotation, API-key issue/revoke and workspace audit user flows
-- [ ] High-load stress measurements and production upgrade/restore rehearsal
+- [x] High-load SQLite stress measurements
+- [ ] Production PostgreSQL upgrade/restore rehearsal
 - [ ] Graph workflow canvas if included in the stable-release scope
 
 ## Implementation log
@@ -97,4 +98,8 @@ Knowledge synchronization verification: `.venv/bin/pytest -q` passed 61 tests; k
 
 2026-09-20: Added `eivon backup` and `eivon restore --force`. SQLite archives use the online backup API and include artifacts plus a schema manifest; restore rejects unsafe paths and future schemas. PostgreSQL backup delegates to `pg_dump --format=custom`.
 
-Backup verification: `.venv/bin/pytest -q` passed 63 tests; `npm run build --prefix console` passed; all 9 browser scenarios passed. SQLite round-trip and unsafe archive tests passed. PostgreSQL production restore rehearsal and high-load stress measurements remain open.
+Backup verification: `.venv/bin/pytest -q` passed 63 tests; `npm run build --prefix console` passed; all 9 browser scenarios passed. SQLite round-trip and unsafe archive tests passed. PostgreSQL production restore rehearsal remains open.
+
+2026-09-20: Added `scripts/stress_leases.py` and a regression test for concurrent run claiming. Eight independent SQLite database connections claimed 128 queued runs with zero duplicate claims or worker errors (0.1382 seconds, 926.27 claims/second on the development machine). The same run then rejected a stale claim, heartbeat and finish from the old worker and was terminalized as `failed` with the side-effect warning.
+
+Stress verification: `PYTHONPATH=src .venv/bin/python scripts/stress_leases.py --runs 128 --workers 8` produced `claims=128`, `unique_claims=128`, `duplicate_claims=0`, and all fencing assertions true; the full regression test covers the same invariants. PostgreSQL production upgrade/restore rehearsal remains open.
