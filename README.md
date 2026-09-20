@@ -74,7 +74,7 @@ Use a session cookie from the browser or an API key as `Authorization: Bearer ei
 
 ## Extension model
 
-A trusted Python extension module exports `register(registry)` and registers async handlers. A Tool resource chooses `adapter: python` and the registered entrypoint. Keep domain implementations outside `eivon.core`; synthetic extension examples will be added under `examples/` as the SDK stabilizes.
+A trusted Python extension module exports `register(registry)` and registers async handlers. A Tool resource chooses `adapter: python` and the registered entrypoint. Keep domain implementations outside `eivon.core`; the `examples/` directory contains a minimal resource graph, two synthetic extension modules and importable Bundle starters.
 
 HTTP tools use a configured URL and method, but the deployment must explicitly allow the destination via `EIVON_OUTBOUND_HOSTS`. Arbitrary URLs, embedded credentials, redirects and secret headers are rejected.
 
