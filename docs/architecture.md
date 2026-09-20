@@ -20,7 +20,7 @@ FastAPI ── Security ── Resources (draft → publish → immutable snapsh
 
 ## Resource and release boundary
 
-A resource draft is mutable and has an optimistic `revision`. Publishing validates its Pydantic contract, resolves every dependency to one exact version, checks credentials and workspace ownership, and stores an immutable snapshot digest. Runs only read that snapshot. Activating or publishing a newer version therefore cannot change a running execution.
+A resource draft is mutable and has an optimistic `revision`. Publishing validates its Pydantic contract, resolves every dependency to one exact version, checks credentials and workspace ownership, and stores an immutable snapshot digest. Runs only read that snapshot. Activating or publishing a newer version therefore cannot change a running execution. The resource console exposes release activation, immutable specifications, pinned dependencies and draft/release comparisons. Archived resources remain discoverable for restoration; optimistic revisions protect saves, publication, activation, archive/restore and revision-aware validation.
 
 The `AgentSpec` composes a model, prompts, skills, tools, Bundles, workflows and knowledge collections. A Bundle is a resource combination, not a hard-coded industry enum. Extension modules are installed by the deployment operator and register async handlers by name.
 

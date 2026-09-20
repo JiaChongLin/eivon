@@ -33,3 +33,7 @@ Workflow Runs accept a separate `input` object validated against the published w
 ## Conversations and generated files
 
 Create a conversation with `POST /sessions` (`agent_id`, `title`, `context`), then send `session_id` in each `POST /runs` request. `GET /sessions/{id}` returns the persisted turns. Only one active or waiting Run is allowed per session. `GET /runs/{id}/artifacts` lists its authorized generated files; use `/artifacts/{id}/download` for authenticated downloads, including Unicode filenames. See the [conversation guide](conversations.md).
+
+## Resource inspection and restoration
+
+`GET /resources` supports `kind`, `search`, `offset`, `limit` and `archived` (default `false`). `archived=true` lists only archived resources in the authenticated workspace. `POST /resources/{id}/validate` accepts an optional `{"revision": N}` body to reject stale validation. Activation and archive/restore require the current revision. The [resource guide](resources.md) distinguishes activation rollback from copying a release into a new draft.

@@ -128,9 +128,10 @@ class Resources:
         offset: int = 0,
         limit: int = 50,
         search: str = "",
+        archived: bool = False,
     ) -> dict:
         principal.require("read")
-        filters = [Resource.workspace_id == principal.workspace_id, Resource.archived.is_(False)]
+        filters = [Resource.workspace_id == principal.workspace_id, Resource.archived.is_(archived)]
         if kind:
             filters.append(Resource.kind == kind)
         if search:
@@ -218,10 +219,14 @@ class Resources:
                 raise ServiceError("not_found", "Resource version not found", 404)
             return row_dict(item)
 
-    def preview(self, principal: Principal, resource_id: str) -> dict:
+    def preview(self, principal: Principal, resource_id: str, revision: int | None = None) -> dict:
         principal.require("write")
         with self.database.transaction() as db:
             item = self._get(db, principal, resource_id)
+            if revision is not None and revision != item.revision:
+                raise ServiceError(
+                    "revision_conflict", "This draft changed. Reload before validating", 409
+                )
             return self._snapshot(db, principal, item, item.draft)
 
     def publish(self, principal: Principal, resource_id: str, revision: int) -> dict:

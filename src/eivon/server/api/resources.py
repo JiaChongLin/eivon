@@ -51,8 +51,9 @@ def list_resources(
     offset: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     search: str = Query("", max_length=200),
+    archived: bool = False,
 ):
-    return request.app.state.resources.list(identity, kind, offset, limit, search)
+    return request.app.state.resources.list(identity, kind, offset, limit, search, archived)
 
 
 @router.post("/resources", status_code=201)
@@ -83,8 +84,12 @@ def version(resource_id: str, version: int, request: Request, identity: Identity
 
 
 @router.post("/resources/{resource_id}/validate")
-def validate(resource_id: str, request: Request, identity: Identity):
-    snapshot = request.app.state.resources.preview(identity, resource_id)
+def validate(
+    resource_id: str, request: Request, identity: Identity, payload: RevisionInput | None = None
+):
+    snapshot = request.app.state.resources.preview(
+        identity, resource_id, payload.revision if payload else None
+    )
     return {"valid": True, "dependencies": len(snapshot["resources"]), "snapshot": snapshot}
 
 

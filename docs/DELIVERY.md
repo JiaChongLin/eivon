@@ -31,11 +31,13 @@ Status: runnable foundation release, still pre-1.0. Completed capabilities and o
 ## Outstanding release work
 
 - [x] Agent resource authoring, multi-turn chat, file approval/download, conversation recovery and cancellation browser E2E
-- [ ] Broader resource administration and workspace isolation browser E2E
+- [x] Resource publication, comparison, activation rollback, archive/restore, conflicts and read-only role browser E2E
+- [ ] Full workspace administration and workspace switching browser E2E
 - [ ] Isolated extension runners; Python imports currently remain trusted deployment code
 - [ ] Knowledge connection management and semantic retrieval
 - [ ] Side-by-side evaluation comparison and reviewed improvement suggestions
-- [ ] Complete administration and resource release rollback user flows
+- [x] Resource release rollback and immutable version inspection user flows
+- [ ] Remaining member, credential, API-key and workspace administration user flows
 - [ ] High-load stress measurements and production upgrade/restore rehearsal
 - [ ] Graph workflow canvas if included in the stable-release scope
 
@@ -62,3 +64,7 @@ Verification for the workflow completion slice:
 - GitHub Actions workflow is committed configuration; a hosted CI run has not been performed because the repository has not been published.
 
 2026-09-20: Fixed Agent batch approval resume and active-time budget enforcement. Published Bundle prompts and skill instructions now enter the model context. Added persisted Playground conversations, private artifact listings and Unicode downloads, plus an Agent browser acceptance scenario and a real console screenshot. Verification: 45 backend tests passed; 2 browser scenarios passed together; frontend build passed. Browser model responses are deterministic fixtures, not live provider verification.
+
+2026-09-20: Added searchable and paginated resource management, archived-resource discovery, per-type authoring buffers, model credential selection, release snapshots and specification comparisons, activation rollback, draft copy and archive/restore. Publication saves the current editor buffer; stale validation/editing is rejected. Added backend rollback/permission tests and browser release-management scenarios.
+
+Resource-management verification: `.venv/bin/pytest -q` passed 48 tests (two dependency deprecation warnings); `.venv/bin/ruff check src tests scripts examples` and `npm run build --prefix console` passed. `EIVON_TEST_CHROME='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' npm run test:e2e --prefix console` passed all 5 browser scenarios together against the disposable server. No hosted CI or live connector execution was claimed by these checks.
