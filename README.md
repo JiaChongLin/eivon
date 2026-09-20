@@ -14,12 +14,12 @@ Console screenshot from the deterministic browser acceptance fixture. See the [c
 
 - A versioned resource model for models, prompts, tools, skills, Bundles, Agents and Workflows.
 - Immutable release snapshots: each Run records the exact dependency versions it uses.
-- A streaming model adapter for OpenAI-compatible endpoints plus an explicitly labelled offline demo provider.
+- Streaming model and embedding adapters for OpenAI-compatible endpoints plus explicitly labelled offline providers.
 - Typed tool execution with JSON Schema validation, timeouts, result budgets, write approvals and outbound host allowlists.
 - Durable Runs with ordered events, cancellation, approval/input waiting, resume support and worker leases.
 - Workspace-scoped resources, roles, API keys, CSRF-protected sessions, encrypted credentials and audit events.
 - A dark management console with setup, overview, resource authoring, Agent publishing, Playground, Run history, Knowledge connections with lexical, semantic and hybrid retrieval and workspace administration (switching, members, credentials, API keys and audit).
-- An evaluation center with immutable test sets, historical batches, version comparison, rule scores, human reviews and instruction candidates that require approval before updating a draft.
+- An evaluation center with immutable test sets, historical batches, version comparison, rule scores, model-generated failure analysis, human reviews and instruction candidates that require approval before updating a draft.
 - SQLite for a zero-dependency local instance and PostgreSQL for deployment.
 - A deployment-time Python extension SDK with optional process isolation; HTTP tools are configured with explicit server allowlists.
 
