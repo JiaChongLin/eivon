@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import json
+from pathlib import Path
 
 
 def main():
@@ -16,6 +18,13 @@ def main():
     serve.add_argument("--workers", default=1, type=int)
     sub.add_parser("init", help="Initialize the database and local instance secrets")
     sub.add_parser("migrate", help="Apply database migrations")
+    backup = sub.add_parser("backup", help="Create a SQLite database/artifact archive")
+    backup.add_argument("output", type=Path)
+    restore = sub.add_parser(
+        "restore", help="Restore a SQLite archive while the service is stopped"
+    )
+    restore.add_argument("archive", type=Path)
+    restore.add_argument("--force", action="store_true")
     worker = sub.add_parser("worker", help="Run the durable execution worker")
     worker.add_argument("--once", action="store_true", help="Claim at most one queued Run")
     args = parser.parse_args()
@@ -45,6 +54,26 @@ def main():
         version = upgrade(app.state.database)
         print(f"Eivon schema version {version}")
         app.state.database.engine.dispose()
+    elif args.command == "backup":
+        from eivon.server.app import create_app
+        from eivon.server.backup import backup as create_backup
+        from eivon.server.backup import postgres_backup
+
+        app = create_app()
+        result = (
+            postgres_backup(app.state.settings, args.output)
+            if app.state.settings.db_url.startswith("postgresql")
+            else create_backup(app.state.settings, args.output)
+        )
+        print(json.dumps(result, indent=2))
+        app.state.database.engine.dispose()
+    elif args.command == "restore":
+        from eivon.server.app import create_app
+        from eivon.server.backup import restore
+
+        app = create_app()
+        app.state.database.engine.dispose()
+        print(json.dumps(restore(app.state.settings, args.archive, args.force), indent=2))
     elif args.command == "worker":
         import asyncio
 

@@ -16,4 +16,12 @@ Python extensions execute with deployment privileges by default. Set `EIVON_EXTE
 
 ## Backups and upgrades
 
-Back up the database and the private `EIVON_DATA_DIR` artifact/secret files together. The current bootstrap uses SQLAlchemy metadata creation; production deployments should pin the package version and add reviewed migrations before upgrading a live database. Health probes are `/health/live` and `/health/ready`.
+Stop API and worker processes before restoring. For a local SQLite deployment:
+
+```bash
+eivon backup /secure/backups/eivon-$(date +%Y%m%d-%H%M).tar.gz
+eivon restore /secure/backups/eivon-20260920-1200.tar.gz --force
+eivon migrate
+```
+
+The archive contains a consistent SQLite backup made with the SQLite backup API, the private artifacts directory and a schema manifest. Restore rejects path traversal, symbolic links and a schema newer than the running binary. For PostgreSQL, use `eivon backup /secure/backups/eivon.dump` to invoke `pg_dump --format=custom`; restore that file with the matching `pg_restore` deployment command. Back up the database and private `EIVON_DATA_DIR` together, and verify a restore in a disposable environment before upgrading production. Health probes are `/health/live` and `/health/ready`.

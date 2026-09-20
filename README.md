@@ -48,7 +48,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-The default Compose service runs an inline worker. For a separate worker, set `EIVON_INLINE_WORKER=false` for the API service and start the worker profile with `docker compose -f docker-compose.yml -f docker-compose.worker.yml up --build`.
+Before upgrades, run `eivon backup` for SQLite or your PostgreSQL dump workflow and rehearse `eivon restore --force` with API and workers stopped. The default Compose service runs an inline worker. For a separate worker, set `EIVON_INLINE_WORKER=false` for the API service and start the worker profile with `docker compose -f docker-compose.yml -f docker-compose.worker.yml up --build`.
 
 ## First Agent walkthrough
 

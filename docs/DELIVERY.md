@@ -94,3 +94,7 @@ Extension verification: `.venv/bin/pytest -q` passed 60 tests; extension-specifi
 2026-09-20: Added generic Knowledge synchronization. A bound connection can GET a bounded JSON document feed, validate the deployment allowlist and credentials, preserve source URIs, compute local embeddings and skip duplicate content by digest. The console exposes Sync connection for bound collections.
 
 Knowledge synchronization verification: `.venv/bin/pytest -q` passed 61 tests; knowledge sync, connection scope and deduplication tests passed; `npm run build --prefix console` passed; all 9 browser scenarios passed. The sync contract is intentionally generic and does not claim connector-specific pagination, webhooks or provider-managed embedding quality.
+
+2026-09-20: Added `eivon backup` and `eivon restore --force`. SQLite archives use the online backup API and include artifacts plus a schema manifest; restore rejects unsafe paths and future schemas. PostgreSQL backup delegates to `pg_dump --format=custom`.
+
+Backup verification: `.venv/bin/pytest -q` passed 63 tests; `npm run build --prefix console` passed; all 9 browser scenarios passed. SQLite round-trip and unsafe archive tests passed. PostgreSQL production restore rehearsal and high-load stress measurements remain open.

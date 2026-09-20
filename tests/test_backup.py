@@ -1,0 +1,49 @@
+import json
+import sqlite3
+import tarfile
+from pathlib import Path
+
+import pytest
+
+from eivon.server.backup import BackupError, backup, restore
+from eivon.server.settings import Settings
+
+
+def test_sqlite_backup_restore_round_trip(tmp_path):
+    settings = Settings(data_dir=tmp_path / "source", setup_token="setup")
+    settings.data_dir.mkdir(parents=True)
+    db_path = Path(settings.db_url.removeprefix("sqlite:///"))
+    connection = sqlite3.connect(db_path)
+    connection.execute("create table marker (value text)")
+    connection.execute("insert into marker values ('sqlite fixture')")
+    connection.commit()
+    connection.close()
+    (settings.data_dir / "artifacts").mkdir()
+    (settings.data_dir / "artifacts" / "a1").write_bytes(b"artifact")
+    archive = tmp_path / "backup.tar.gz"
+    result = backup(settings, archive)
+    assert result["schema_version"] == 5
+    connection = sqlite3.connect(db_path)
+    connection.execute("update marker set value='changed'")
+    connection.commit()
+    connection.close()
+    (settings.data_dir / "artifacts" / "a1").write_bytes(b"changed")
+    restored = restore(settings, archive, force=True)
+    assert restored["restored"] is True
+    connection = sqlite3.connect(db_path)
+    assert connection.execute("select value from marker").fetchone()[0] == "sqlite fixture"
+    connection.close()
+    assert (settings.data_dir / "artifacts" / "a1").read_bytes() == b"artifact"
+
+
+def test_restore_rejects_unsafe_archive_and_requires_force(tmp_path):
+    settings = Settings(data_dir=tmp_path / "source")
+    archive = tmp_path / "unsafe.tar.gz"
+    with tarfile.open(archive, "w:gz") as handle:
+        path = tmp_path / "manifest.json"
+        path.write_text(json.dumps({"format": 1, "schema_version": 5}))
+        handle.add(path, arcname="../manifest.json")
+    with pytest.raises(BackupError, match="force"):
+        restore(settings, archive)
+    with pytest.raises(BackupError, match="unsafe"):
+        restore(settings, archive, force=True)
