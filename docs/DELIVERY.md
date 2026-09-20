@@ -12,7 +12,7 @@ Status: runnable foundation release, still pre-1.0. Completed capabilities and o
 - [x] Agent loop with model streaming, tools, budgets, cancellation and checkpoints
 - [x] Execution-time authorization, tool approvals and safe extension boundaries (trusted Python extensions remain deployment-scoped)
 - [x] Durable runs, ordered events, sessions, artifacts and worker coordination
-- [x] Knowledge ingestion, lexical retrieval and source metadata; semantic citations and connection management remain
+- [x] Knowledge ingestion, connection bindings, source metadata and lexical/semantic/hybrid retrieval; remote synchronization and semantic citations remain
 - [x] Evaluation sets, historical batches, deterministic scoring, human reviews, version comparison and reviewed instruction candidates; model-generated suggestions remain
 - [x] Complete console: setup, dashboard, agents, resources, playground, chat
 - [x] Complete console: runs, knowledge, evaluations, approvals, members, settings (model-generated improvement suggestions remain)
@@ -34,7 +34,8 @@ Status: runnable foundation release, still pre-1.0. Completed capabilities and o
 - [x] Resource publication, comparison, activation rollback, archive/restore, conflicts and read-only role browser E2E
 - [x] Workspace switching, create/rename, scoped file delivery and resource/conversation isolation browser E2E
 - [ ] Isolated extension runners; Python imports currently remain trusted deployment code
-- [ ] Knowledge connection management and semantic retrieval
+- [x] Knowledge connection binding, connection checks and semantic/hybrid retrieval
+- [ ] Remote knowledge synchronization and provider-managed embeddings
 - [x] Side-by-side evaluation comparison, failure evidence, human scoring and reviewed instruction candidates
 - [ ] Model-generated failure analysis and instruction suggestions
 - [x] Resource release rollback and immutable version inspection user flows
@@ -77,3 +78,9 @@ Workspace-administration verification: `.venv/bin/pytest -q` passed 51 tests (tw
 2026-09-20: Replaced the latest-result-only evaluation view with paginated batch history, exact-batch case inspection and side-by-side release comparison. Added append-only human scores, failure-evidence summaries and Prompt/Skill instruction candidates. Administrator acceptance checks the frozen draft revision and applies the draft update and review transition atomically; published resources and permissions remain unchanged. Added schema v4 additive tables and rejected future schema versions before DDL. Model-generated causal analysis and suggestions are explicitly still pending.
 
 Evaluation-center verification: `.venv/bin/pytest -q` passed 56 tests (two dependency deprecation warnings); after strengthening the scoped-key authorization assertion, `.venv/bin/pytest -q tests/test_evaluation_review.py` passed all 5 targeted tests. `.venv/bin/ruff check src tests scripts examples`, `npm run build --prefix console` and `git diff --check` passed. `EIVON_TEST_CHROME='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' npm run test:e2e --prefix console` passed all 8 browser scenarios, including historical batch comparison, independent human scoring, accepted-draft persistence and immutable published instructions. Inspected the rendered evaluation-center screenshot. Tests used SQLite and deterministic/demo model responses; PostgreSQL upgrade rehearsal, live-model quality validation and hosted CI are not claimed.
+
+2026-09-20: Added versioned connection bindings for Knowledge collections, connection configuration checks, deterministic offline embeddings and lexical/semantic/hybrid retrieval scores. Search results preserve source URI, collection, lexical score and semantic score; collection and connection access remain workspace-scoped. Added Knowledge console controls and browser coverage.
+
+Knowledge verification: `.venv/bin/pytest -q tests/test_knowledge.py` passed 3 tests; full suite and browser verification follow this change. Semantic retrieval is a deterministic local embedding baseline for self-hosted/offline installs, not a claim of model-quality vector search. Remote connector synchronization and provider-managed embedding models remain optional future extensions.
+
+Knowledge verification final: `.venv/bin/pytest -q` passed 58 tests; `npm run build --prefix console` passed; `EIVON_TEST_CHROME='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' npm run test:e2e --prefix console` passed all 9 browser scenarios. The disposable browser server covered connection binding, source metadata and semantic/lexical search. The repository remains pre-1.0: remote synchronization, provider-managed embeddings, isolated extension runners, high-load measurements and production restore rehearsal remain explicit follow-up work.

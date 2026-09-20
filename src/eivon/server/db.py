@@ -192,6 +192,8 @@ class Collection(Base):
     workspace_id: Mapped[str] = mapped_column(ForeignKey("workspaces.id"), index=True)
     name: Mapped[str] = mapped_column(String(160))
     description: Mapped[str] = mapped_column(Text, default="")
+    connection_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    connection_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[float] = mapped_column(Float, default=time.time)
 
 
@@ -214,6 +216,7 @@ class Chunk(Base):
     position: Mapped[int] = mapped_column(Integer)
     content: Mapped[str] = mapped_column(Text)
     terms: Mapped[dict] = mapped_column(JSON)
+    embedding: Mapped[list] = mapped_column(JSON, default=list)
 
 
 class Job(Base):

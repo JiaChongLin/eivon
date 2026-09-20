@@ -57,3 +57,5 @@ All routes below are under `/api/v1` and use the current workspace scope.
 | `POST /evaluation-jobs/{id}/proposals/{proposal_id}/review` | Decide with `{ "decision": "accepted", "note": "…" }` or `rejected` |
 
 Schema version 4 adds `evaluation_reviews` and `improvement_proposals` without changing existing evaluation results. Back up the database before deployment upgrades; `eivon migrate` applies the additive upgrade. Newer unknown schema versions are rejected before schema changes.
+
+The current improvement flow is intentionally human-authored: Eivon records failure evidence and applies only a reviewed candidate. A future extension may generate candidate text, but it must enter the same pending review state and rerun the test set before release.

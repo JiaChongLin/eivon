@@ -40,3 +40,5 @@ Send `x-eivon-workspace: <workspace-id>` for an explicit scope. Cookie-authentic
 `GET /auth/session` retrieves the CSRF token for a valid browser cookie independently of workspace membership. `POST /auth/logout` uses that cookie and CSRF token to invalidate the browser session and clear the cookie. API keys are revoked through their dedicated endpoint.
 
 Audit event details include action identifiers and affected resources, not credential plaintext or API key secrets. Retention/export policies and account recovery remain deployment responsibilities.
+
+Knowledge collections may bind an active versioned connection from the current workspace. Binding checks the connection and credential scope; it does not make a remote request.

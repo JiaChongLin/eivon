@@ -1,0 +1,33 @@
+import { expect, test } from "@playwright/test";
+import { signInThroughUI } from "./auth";
+
+test("bind a knowledge connection and search lexical, semantic and hybrid context", async ({ page }) => {
+  const identity = await signInThroughUI(page);
+  const headers = { "x-csrf-token": identity.csrf_token };
+  const resource = await page.request.post("/api/v1/resources", { headers, data: { kind: "connection", name: "Knowledge connector", slug: "knowledge-connector", spec: { adapter: "http", base_url: "https://knowledge.example.test", description: "Offline configured connector" } } });
+  expect(resource.status()).toBe(201); const item = await resource.json();
+  expect((await page.request.post(`/api/v1/resources/${item.id}/publish`, { headers, data: { revision: item.revision } })).status()).toBe(201);
+  await page.getByRole("button", { name: "08 Knowledge", exact: true }).click();
+  const collection = page.getByRole("form", { name: "Create collection" });
+  await collection.getByLabel("Name", { exact: true }).fill("Product manuals");
+  await collection.getByLabel("Description", { exact: true }).fill("Semantic retrieval examples");
+  await collection.getByLabel("Connection").selectOption(item.id);
+  await collection.getByRole("button", { name: "Create collection", exact: true }).click();
+  await expect(page.getByRole("status")).toHaveText("Collection created");
+  const document = page.getByRole("form", { name: "Index document" });
+  await document.getByLabel("Title", { exact: true }).fill("Reset procedure");
+  await document.getByLabel("Source URI", { exact: true }).fill("manual://reset");
+  await document.getByLabel("Content", { exact: true }).fill("The vehicle can restart after a safe engine reset procedure.");
+  await document.getByRole("button", { name: "Index document", exact: true }).click();
+  await expect(page.getByRole("status")).toHaveText("Document indexed");
+  const search = page.getByRole("form", { name: "Search indexed context" });
+  await search.getByPlaceholder("Search this collection…").fill("engine restart");
+  await search.getByLabel("Retrieval mode").selectOption("semantic");
+  await search.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByText("Reset procedure", { exact: true })).toBeVisible();
+  await expect(page.getByText(/semantic/)).toBeVisible();
+  await search.getByLabel("Retrieval mode").selectOption("lexical");
+  await search.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByText("manual://reset", { exact: true })).toBeVisible();
+  await expect(page.getByText(/Collection created/)).toHaveCount(0);
+});

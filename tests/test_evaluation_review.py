@@ -266,8 +266,8 @@ def test_evaluation_schema_upgrade_preserves_history(client, app, owner):
     ImprovementProposal.__table__.drop(app.state.database.engine)
     with app.state.database.transaction() as db:
         db.get(Meta, "schema_version").value = "3"
-    assert upgrade(app.state.database) == 4
-    assert upgrade(app.state.database) == 4
+    assert upgrade(app.state.database) == 5
+    assert upgrade(app.state.database) == 5
     tables = inspect(app.state.database.engine).get_table_names()
     assert "evaluation_reviews" in tables and "improvement_proposals" in tables
     detail = client.get(f"/api/v1/evaluation-jobs/{job['id']}").json()

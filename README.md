@@ -18,7 +18,7 @@ Console screenshot from the deterministic browser acceptance fixture. See the [c
 - Typed tool execution with JSON Schema validation, timeouts, result budgets, write approvals and outbound host allowlists.
 - Durable Runs with ordered events, cancellation, approval/input waiting, resume support and worker leases.
 - Workspace-scoped resources, roles, API keys, CSRF-protected sessions, encrypted credentials and audit events.
-- A dark management console with setup, overview, resource authoring, Agent publishing, Playground, Run history, Knowledge indexing/search and workspace administration (switching, members, credentials, API keys and audit).
+- A dark management console with setup, overview, resource authoring, Agent publishing, Playground, Run history, Knowledge connections with lexical, semantic and hybrid retrieval and workspace administration (switching, members, credentials, API keys and audit).
 - An evaluation center with immutable test sets, historical batches, version comparison, rule scores, human reviews and instruction candidates that require approval before updating a draft.
 - SQLite for a zero-dependency local instance and PostgreSQL for deployment.
 - A deployment-time Python extension SDK; HTTP tools are configured with explicit server allowlists.

@@ -11,6 +11,7 @@ router = APIRouter()
 class CollectionInput(Contract):
     name: str = Field(min_length=1, max_length=160)
     description: str = Field(default="", max_length=4000)
+    connection_id: str | None = None
 
 
 class DocumentInput(Contract):
@@ -24,6 +25,17 @@ class SearchInput(Contract):
     collection_ids: list[str] = Field(min_length=1, max_length=50)
     query: str = Field(min_length=1, max_length=2000)
     limit: int = Field(default=8, ge=1, le=50)
+    mode: str = Field(default="hybrid", pattern="^(lexical|semantic|hybrid)$")
+
+
+@router.get("/knowledge/connections")
+def connections(request: Request, identity: Identity):
+    return {"items": request.app.state.knowledge.connections(identity)}
+
+
+@router.post("/knowledge/connections/{connection_id}/test")
+def test_connection(connection_id: str, request: Request, identity: Identity):
+    return request.app.state.knowledge.test_connection(identity, connection_id)
 
 
 @router.get("/knowledge/collections")
