@@ -53,9 +53,10 @@ All routes below are under `/api/v1` and use the current workspace scope.
 | `GET /evaluation-comparison?baseline={id}&candidate={id}` | Compare compatible completed batches |
 | `POST /evaluation-jobs/{id}/results/{result_id}/reviews` | Append `{ "score": 0.5, "note": "…" }` |
 | `GET /evaluation-jobs/{id}/reflection` | Failure evidence, editable instruction targets and proposals |
+| `POST /evaluation-jobs/{id}/analysis` | Ask the published model for bounded failure patterns and instruction suggestions; preserve raw output |
 | `POST /evaluation-jobs/{id}/proposals` | Submit `{ "resource_id": "…", "revision": 3, "text": "…", "rationale": "…" }` |
 | `POST /evaluation-jobs/{id}/proposals/{proposal_id}/review` | Decide with `{ "decision": "accepted", "note": "…" }` or `rejected` |
 
-Schema version 4 adds `evaluation_reviews` and `improvement_proposals`; schema version 5 adds Knowledge connection bindings and local chunk embeddings without changing existing evaluation results. Back up the database before deployment upgrades; `eivon migrate` applies the additive upgrade. Newer unknown schema versions are rejected before schema changes.
+Schema version 4 adds `evaluation_reviews` and `improvement_proposals`; schema version 5 adds Knowledge connection bindings and local chunk embeddings; schema version 6 adds pinned embedding resource bindings. Back up the database before deployment upgrades; `eivon migrate` applies the additive upgrade. Newer unknown schema versions are rejected before schema changes.
 
-The current improvement flow is intentionally human-authored: Eivon records failure evidence and applies only a reviewed candidate. A future extension may generate candidate text, but it must enter the same pending review state and rerun the test set before release.
+The model analysis endpoint produces evidence and suggestions, but never writes a resource. Authors submit any edited instruction through the existing pending proposal flow; administrators review it, then the test set must be rerun before release.

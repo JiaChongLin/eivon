@@ -56,7 +56,7 @@ class RunWorker:
         self.database, self.runs, self.settings, self.security = database, runs, settings, security
         self.artifacts, self.extensions, self.knowledge = artifacts, extensions, knowledge
         self.worker_id = worker_id or f"worker-{os.getpid()}"
-        self.evaluations = Evaluations(database, runs)
+        self.evaluations = Evaluations(database, runs, settings, security)
 
     async def once(self) -> bool:
         scored = self.evaluations.reconcile()

@@ -48,7 +48,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     artifacts = Artifacts(database, settings)
     knowledge = Knowledge(database, settings, security)
     run_service = Runs(database, resources_service)
-    evaluations = Evaluations(database, run_service)
+    evaluations = Evaluations(database, run_service, settings, security)
     worker = RunWorker(database, run_service, settings, security, artifacts, extensions, knowledge)
 
     @asynccontextmanager

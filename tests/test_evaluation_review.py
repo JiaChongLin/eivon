@@ -113,6 +113,24 @@ def test_compare_batches_and_append_human_scores(client, app, owner):
     )
 
 
+def test_model_analysis_is_persisted_and_keeps_raw_provider_output(client, app, owner):
+    _prompt, agent, evaluation = evaluation_fixture(client)
+    job = scored_job(client, app, agent, evaluation, 1, ["wrong", "wrong"])
+    response = client.post(f"/api/v1/evaluation-jobs/{job['id']}/analysis")
+    assert response.status_code == 200, response.text
+    analysis = response.json()
+    assert analysis["structured"] is False
+    assert "Offline demo" in analysis["raw"]
+    reflection = client.get(f"/api/v1/evaluation-jobs/{job['id']}/reflection").json()
+    assert reflection["analysis"]["raw"] == analysis["raw"]
+    key = client.post("/api/v1/api-keys", json={"name": "Read only", "permissions": ["read"]}).json()["secret"]
+    denied = client.post(
+        f"/api/v1/evaluation-jobs/{job['id']}/analysis",
+        headers={"authorization": f"Bearer {key}"},
+    )
+    assert denied.status_code == 403
+
+
 def test_reviewed_improvement_is_atomic_and_never_publishes(client, app, owner):
     prompt, agent, evaluation = evaluation_fixture(client)
     job = scored_job(client, app, agent, evaluation, 1, ["wrong", "wrong"])
@@ -266,8 +284,8 @@ def test_evaluation_schema_upgrade_preserves_history(client, app, owner):
     ImprovementProposal.__table__.drop(app.state.database.engine)
     with app.state.database.transaction() as db:
         db.get(Meta, "schema_version").value = "3"
-    assert upgrade(app.state.database) == 5
-    assert upgrade(app.state.database) == 5
+    assert upgrade(app.state.database) == 6
+    assert upgrade(app.state.database) == 6
     tables = inspect(app.state.database.engine).get_table_names()
     assert "evaluation_reviews" in tables and "improvement_proposals" in tables
     detail = client.get(f"/api/v1/evaluation-jobs/{job['id']}").json()

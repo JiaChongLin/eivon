@@ -16,11 +16,11 @@ Create a Run with `POST /runs`, read ordered events with `GET /runs/{id}/events`
 
 ## Domain data
 
-Knowledge collections and documents use `/knowledge/collections` and `/knowledge/documents`; lexical retrieval is available at `/knowledge/search`. Domain packages should put their business context, tools and authorization in Bundles or trusted extensions while keeping core resource contracts stable.
+Knowledge collections and documents use `/knowledge/collections` and `/knowledge/documents`; lexical, semantic and hybrid retrieval is available at `/knowledge/search`. A collection can bind a published `embedding` resource or use the deterministic local provider. Domain packages should put their business context, tools and authorization in Bundles or trusted extensions while keeping core resource contracts stable.
 
 ## Evaluations
 
-Create a JSON evaluation set with `POST /evaluations`. Each case has an `input`, an optional `context`, an `expected` string and a `match` mode (`contains`, `exact` or `nonempty`). `POST /evaluations/{id}/run` creates one immutable Run per case and returns a durable evaluation Job. Poll `/evaluation-jobs/{id}` for that exact batch’s case results and aggregate score. `/evaluations/{id}/jobs` lists paginated history; `/evaluation-comparison` compares two compatible completed batches. Human reviews and reviewed Prompt/Skill candidates are documented in the [evaluation guide](evaluations.md).
+Create a JSON evaluation set with `POST /evaluations`. Each case has an `input`, an optional `context`, an `expected` string and a `match` mode (`contains`, `exact` or `nonempty`). `POST /evaluations/{id}/run` creates one immutable Run per case and returns a durable evaluation Job. Poll `/evaluation-jobs/{id}` for that exact batch’s case results and aggregate score. `/evaluations/{id}/jobs` lists paginated history; `/evaluation-comparison` compares two compatible completed batches. `/evaluation-jobs/{id}/analysis` asks the evaluated model for bounded failure analysis and suggestions. Human reviews and reviewed Prompt/Skill candidates are documented in the [evaluation guide](evaluations.md).
 
 ## MCP tools
 

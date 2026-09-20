@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 import hashlib
-import math
 import re
 from typing import Any
 
 import httpx
 from sqlalchemy import select
 
+from eivon.adapters.embeddings import EmbeddingUnavailable, embed, local_embedding
 from eivon.adapters.network import check_destination
-from eivon.core.contracts import ConnectionSpec
+from eivon.core.contracts import ConnectionSpec, EmbeddingSpec
 from eivon.server.resources import validate_spec
 
 from .db import (
@@ -35,19 +35,7 @@ def terms(value: str) -> dict[str, int]:
     return result
 
 
-def embedding(value: str, dimensions: int = 96) -> list[float]:
-    """Stable local embedding for offline installs; uses token and character features."""
-    vector = [0.0] * dimensions
-    features = list(terms(value)) + [
-        value.lower()[i : i + 3] for i in range(max(0, len(value) - 2))
-    ]
-    for feature in features:
-        digest = hashlib.blake2b(feature.encode(), digest_size=8).digest()
-        index = int.from_bytes(digest[:4], "big") % dimensions
-        sign = 1.0 if digest[4] & 1 else -1.0
-        vector[index] += sign
-    norm = math.sqrt(sum(item * item for item in vector)) or 1.0
-    return [round(item / norm, 8) for item in vector]
+embedding = local_embedding
 
 
 def similarity(left: list[float], right: list[float]) -> float:
@@ -89,6 +77,32 @@ class Knowledge:
         release = db.get(ResourceVersion, (resource.id, resource.active_version))
         validate_spec("connection", release.spec)
         return resource, release
+
+    def _embedding_config(self, db, principal, resource_id: str | None, version: int | None = None):
+        if not resource_id:
+            spec = EmbeddingSpec()
+            return spec, None, None
+        resource = db.get(Resource, resource_id)
+        if resource is None or resource.workspace_id != principal.workspace_id:
+            raise ServiceError("not_found", "Embedding resource not found", 404)
+        if resource.kind != "embedding" or resource.archived or not resource.active_version:
+            raise ServiceError("embedding_unavailable", "Embedding resource must be published", 409)
+        selected = version or resource.active_version
+        if selected != resource.active_version:
+            raise ServiceError("embedding_changed", "Publish and rebind the collection before use", 409)
+        release = db.get(ResourceVersion, (resource.id, selected))
+        if release is None:
+            raise ServiceError("embedding_unavailable", "Embedding release is missing", 409)
+        spec = EmbeddingSpec.model_validate(release.spec)
+        credential = self.security.credential_value(principal.workspace_id, spec.credential_id) if self.security else None
+        return spec, credential, (resource.id, release.version)
+
+    @staticmethod
+    def _embed_or_service(spec, credential, allowed_hosts, values):
+        try:
+            return embed(spec, credential, allowed_hosts, values)
+        except EmbeddingUnavailable as exc:
+            raise ServiceError("embedding_failed", str(exc), 502) from exc
 
     def connections(self, principal: Principal) -> list[dict]:
         principal.require("read")
@@ -149,6 +163,12 @@ class Knowledge:
                     "connection_changed", "Publish and rebind the collection before syncing", 409
                 )
             spec = ConnectionSpec.model_validate(release.spec)
+            embedding_spec, embedding_credential, _ = self._embedding_config(
+                db,
+                principal,
+                collection.embedding_resource_id,
+                collection.embedding_resource_version,
+            )
             headers = {}
             if spec.credential_id and self.security:
                 secret = self.security.credential_value(principal.workspace_id, spec.credential_id)
@@ -211,14 +231,21 @@ class Knowledge:
                 )
                 db.add(document)
                 db.flush()
-                for position, part in enumerate(chunks(content)):
+                parts = chunks(content)
+                vectors = self._embed_or_service(
+                    embedding_spec,
+                    embedding_credential,
+                    self.settings.allowed_hosts if self.settings else (),
+                    parts,
+                )
+                for position, (part, vector) in enumerate(zip(parts, vectors, strict=True)):
                     db.add(
                         Chunk(
                             document_id=document.id,
                             position=position,
                             content=part,
                             terms=terms(part),
-                            embedding=embedding(part),
+                            embedding=vector,
                         )
                     )
                 imported += 1
@@ -252,17 +279,25 @@ class Knowledge:
             ]
 
     def create_collection(
-        self, principal: Principal, name: str, description: str, connection_id: str | None = None
+        self,
+        principal: Principal,
+        name: str,
+        description: str,
+        connection_id: str | None = None,
+        embedding_resource_id: str | None = None,
     ) -> dict:
         principal.require("write")
         with self.database.transaction() as db:
             connection = self._connection(db, principal, connection_id)
+            embedding_config = self._embedding_config(db, principal, embedding_resource_id)
             item = Collection(
                 workspace_id=principal.workspace_id,
                 name=name,
                 description=description,
                 connection_id=connection[0].id if connection else None,
                 connection_version=connection[1].version if connection else None,
+                embedding_resource_id=embedding_config[2][0] if embedding_config[2] else None,
+                embedding_resource_version=embedding_config[2][1] if embedding_config[2] else None,
             )
             db.add(item)
             db.flush()
@@ -292,6 +327,19 @@ class Knowledge:
             collection = db.get(Collection, collection_id)
             if collection is None or collection.workspace_id != principal.workspace_id:
                 raise ServiceError("not_found", "Knowledge collection not found", 404)
+            embedding_spec, embedding_credential, _ = self._embedding_config(
+                db,
+                principal,
+                collection.embedding_resource_id,
+                collection.embedding_resource_version,
+            )
+            parts = chunks(content)
+            vectors = self._embed_or_service(
+                embedding_spec,
+                embedding_credential,
+                self.settings.allowed_hosts if self.settings else (),
+                parts,
+            )
             document = Document(
                 collection_id=collection.id,
                 title=title,
@@ -302,14 +350,14 @@ class Knowledge:
             )
             db.add(document)
             db.flush()
-            for position, part in enumerate(chunks(content)):
+            for position, (part, vector) in enumerate(zip(parts, vectors, strict=True)):
                 db.add(
                     Chunk(
                         document_id=document.id,
                         position=position,
                         content=part,
                         terms=terms(part),
-                        embedding=embedding(part),
+                        embedding=vector,
                     )
                 )
             audit(db, principal, "knowledge.document.index", document.id)
@@ -326,7 +374,7 @@ class Knowledge:
         principal.require("read")
         if mode not in {"lexical", "semantic", "hybrid"}:
             raise ServiceError("invalid_search_mode", "Choose lexical, semantic or hybrid", 422)
-        query_terms, query_embedding = terms(query), embedding(query)
+        query_terms = terms(query)
         if not query_terms and mode == "lexical":
             return []
         with self.database.transaction() as db:
@@ -345,6 +393,36 @@ class Knowledge:
                     "A knowledge collection is not available in this workspace",
                     403,
                 )
+            configs = [
+                self._embedding_config(
+                    db,
+                    principal,
+                    collection.embedding_resource_id,
+                    collection.embedding_resource_version,
+                )
+                for collection in allowed
+            ]
+            fingerprints = {
+                (config[0].provider, config[0].model, config[0].dimensions, config[2])
+                for config in configs
+            }
+            if len(fingerprints) != 1:
+                raise ServiceError(
+                    "embedding_mismatch",
+                    "Search collections must use the same embedding release",
+                    422,
+                )
+            embedding_spec, embedding_credential, _ = configs[0]
+            query_embedding = (
+                self._embed_or_service(
+                    embedding_spec,
+                    embedding_credential,
+                    self.settings.allowed_hosts if self.settings else (),
+                    [query],
+                )[0]
+                if mode != "lexical"
+                else []
+            )
             rows = db.execute(
                 select(Chunk, Document)
                 .join(Document, Document.id == Chunk.document_id)
@@ -359,7 +437,8 @@ class Knowledge:
                 lexical = sum(
                     count * chunk.terms.get(token, 0) for token, count in query_terms.items()
                 )
-                semantic = similarity(chunk.embedding or embedding(chunk.content), query_embedding)
+                fallback = local_embedding(chunk.content, embedding_spec.dimensions)
+                semantic = similarity(chunk.embedding or fallback, query_embedding)
                 score = (
                     semantic
                     if mode == "semantic"

@@ -77,6 +77,71 @@ def test_semantic_hybrid_search_and_connection_binding(client, app, owner):
     )
 
 
+def test_provider_embedding_resource_is_bound_and_used_for_index_and_query(client, app, owner, monkeypatch):
+    from eivon.adapters import embeddings as embeddings_module
+
+    from .conftest import create_resource, publish
+
+    object.__setattr__(app.state.settings, "allowed_hosts", ("embed.example.test",))
+    embedding_resource = create_resource(
+        client,
+        "embedding",
+        "remote-embedding",
+        {
+            "provider": "openai_compatible",
+            "model": "embed-test",
+            "base_url": "https://embed.example.test/v1",
+            "dimensions": 96,
+        },
+    )
+    publish(client, embedding_resource)
+
+    class Response:
+        content = b'{"data": []}'
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"data": [{"index": index, "embedding": [0.25] * 96} for index in range(self.count)]}
+
+    class Client:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def post(self, url, headers, json):
+            assert url == "https://embed.example.test/v1/embeddings"
+            assert json["model"] == "embed-test"
+            response = Response()
+            response.count = len(json["input"])
+            return response
+
+    monkeypatch.setattr(embeddings_module.httpx, "Client", Client)
+    collection = client.post(
+        "/api/v1/knowledge/collections",
+        json={"name": "Remote vectors", "embedding_resource_id": embedding_resource["id"]},
+    )
+    assert collection.status_code == 201, collection.text
+    assert collection.json()["embedding_resource_version"] == 1
+    document = client.post(
+        "/api/v1/knowledge/documents",
+        json={"collection_id": collection.json()["id"], "title": "Vector guide", "content": "Remote vector content"},
+    )
+    assert document.status_code == 201, document.text
+    result = client.post(
+        "/api/v1/knowledge/search",
+        json={"collection_ids": [collection.json()["id"]], "query": "anything", "mode": "semantic"},
+    )
+    assert result.status_code == 200, result.text
+    assert result.json()["items"][0]["semantic_score"] == 1.0
+
+
 def test_knowledge_connection_and_embedding_scope_are_workspace_bound(client, owner):
     from .conftest import create_resource, publish
 

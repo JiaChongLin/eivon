@@ -7,11 +7,15 @@ test("bind a knowledge connection and search lexical, semantic and hybrid contex
   const resource = await page.request.post("/api/v1/resources", { headers, data: { kind: "connection", name: "Knowledge connector", slug: "knowledge-connector", spec: { adapter: "http", base_url: "https://knowledge.example.test", description: "Offline configured connector" } } });
   expect(resource.status()).toBe(201); const item = await resource.json();
   expect((await page.request.post(`/api/v1/resources/${item.id}/publish`, { headers, data: { revision: item.revision } })).status()).toBe(201);
+  const embedding = await page.request.post("/api/v1/resources", { headers, data: { kind: "embedding", name: "Local vectors", slug: "local-vectors", spec: { provider: "local", model: "local-hash", dimensions: 96 } } });
+  expect(embedding.status()).toBe(201); const embeddingItem = await embedding.json();
+  expect((await page.request.post(`/api/v1/resources/${embeddingItem.id}/publish`, { headers, data: { revision: embeddingItem.revision } })).status()).toBe(201);
   await page.getByRole("button", { name: "08 Knowledge", exact: true }).click();
   const collection = page.getByRole("form", { name: "Create collection" });
   await collection.getByLabel("Name", { exact: true }).fill("Product manuals");
   await collection.getByLabel("Description", { exact: true }).fill("Semantic retrieval examples");
   await collection.getByLabel("Connection").selectOption(item.id);
+  await collection.getByLabel("Embedding provider").selectOption(embeddingItem.id);
   await collection.getByRole("button", { name: "Create collection", exact: true }).click();
   await expect(page.getByRole("status")).toHaveText("Collection created");
   const document = page.getByRole("form", { name: "Index document" });

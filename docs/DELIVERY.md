@@ -13,9 +13,9 @@ Status: runnable foundation release, still pre-1.0. Completed capabilities and o
 - [x] Execution-time authorization, tool approvals and safe extension boundaries (trusted Python extensions remain deployment-scoped)
 - [x] Durable runs, ordered events, sessions, artifacts and worker coordination
 - [x] Knowledge ingestion, connection bindings, bounded JSON synchronization, source metadata and lexical/semantic/hybrid retrieval; connector-specific adapters and provider embeddings remain
-- [x] Evaluation sets, historical batches, deterministic scoring, human reviews, version comparison and reviewed instruction candidates; model-generated suggestions remain
+- [x] Evaluation sets, historical batches, deterministic scoring, human reviews, version comparison, model-generated failure analysis and reviewed instruction candidates
 - [x] Complete console: setup, dashboard, agents, resources, playground, chat
-- [x] Complete console: runs, knowledge, evaluations, approvals, members, settings (model-generated improvement suggestions remain)
+- [x] Complete console: runs, knowledge, evaluations, model analysis, approvals, members, settings
 - [x] Workflow execution and structured editor for Input/Tool/Prompt/Condition, typed bindings, schema validation, cancellation, persistent branching and run inspection
 - [x] HTTP, trusted Python and Streamable HTTP MCP tool integration
 - [x] Generic starter examples and two distinct synthetic domain bundles
@@ -36,7 +36,7 @@ Status: runnable foundation release, still pre-1.0. Completed capabilities and o
 - [x] Optional isolated Python extension runner with JSON boundary, timeout and cancellation termination; OS sandboxing remains deployment-owned
 - [x] Knowledge connection binding, connection checks and semantic/hybrid retrieval
 - [x] Bounded generic JSON knowledge synchronization with source metadata and digest deduplication
-- [ ] Provider-managed embeddings and connector-specific sync adapters
+- [x] Provider-managed embeddings through versioned resources; connector-specific sync adapters remain
 - [x] Side-by-side evaluation comparison, failure evidence, human scoring and reviewed instruction candidates
 - [ ] Model-generated failure analysis and instruction suggestions
 - [x] Resource release rollback and immutable version inspection user flows
@@ -103,3 +103,9 @@ Backup verification: `.venv/bin/pytest -q` passed 63 tests; `npm run build --pre
 2026-09-20: Added `scripts/stress_leases.py` and a regression test for concurrent run claiming. Eight independent SQLite database connections claimed 128 queued runs with zero duplicate claims or worker errors (0.1382 seconds, 926.27 claims/second on the development machine). The same run then rejected a stale claim, heartbeat and finish from the old worker and was terminalized as `failed` with the side-effect warning.
 
 Stress verification: `PYTHONPATH=src .venv/bin/python scripts/stress_leases.py --runs 128 --workers 8` produced `claims=128`, `unique_claims=128`, `duplicate_claims=0`, and all fencing assertions true; the full regression test covers the same invariants. PostgreSQL production upgrade/restore rehearsal remains open.
+
+2026-09-20: Added `POST /evaluation-jobs/{id}/analysis`. It invokes the model pinned by the evaluated Agent release, preserves bounded raw output, accepts structured failure patterns and suggestions when the provider returns JSON, and stores the result on the immutable evaluation batch without changing resources. The console exposes model analysis beside the human proposal review flow.
+
+2026-09-20: Added schema v6 versioned `embedding` resources. Collections pin an embedding release; local feature hashing remains the offline default and OpenAI-compatible `/embeddings` is bounded, allowlisted, credential-aware and dimension-validated. Search rejects collections with incompatible embedding fingerprints.
+
+Analysis and embedding verification: `.venv/bin/pytest -q tests/test_evaluation_review.py tests/test_knowledge.py tests/test_backup.py` passed 13 tests; provider calls use deterministic mocked responses and no real credentials.

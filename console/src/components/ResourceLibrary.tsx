@@ -5,13 +5,14 @@ import type { Resource } from "../api";
 import { ResourceEditor } from "./ResourceEditor";
 import { parseSpec } from "./resourceSpec";
 
-const kinds = ["model", "prompt", "tool", "skill", "bundle", "workflow", "agent", "connection"];
+const kinds = ["model", "embedding", "prompt", "tool", "skill", "bundle", "workflow", "agent", "connection"];
 const templates: Record<string, Record<string, unknown>> = {
   tool: { description: "Echo input for demonstration", adapter: "builtin", entrypoint: "echo", input_schema: { type: "object" }, effect: "read" },
   skill: { description: "A reusable method", body: "Describe the method here.", tool_refs: [], preload: false },
   bundle: { description: "A reusable capability bundle", tool_refs: [], skill_refs: [], prompt_refs: [], workflow_refs: [], knowledge_collection_ids: [], context_schema: { type: "object" } },
   workflow: { description: "A portable workflow", steps: [{ type: "input", id: "request", question: "What should be done?" }] },
   connection: { adapter: "http", base_url: "https://api.example.com", description: "A shared connection configuration" },
+  embedding: { provider: "local", model: "local-hash", dimensions: 96 },
 };
 export function ResourceList({ kind, title, empty, canWrite }: { kind?: string; title: string; empty?: string; canWrite: boolean }) {
   const [items, setItems] = useState<Resource[]>([]);
@@ -82,7 +83,9 @@ function ResourceDialog({ kind, onClose, onCreated }: { kind?: string; onClose: 
   useEffect(() => {
     let mounted = true;
     if (resourceKind === "agent") Promise.all([published("model"), published("prompt")]).then(([models, prompts]) => { if (mounted) { setModels(models); setPrompts(prompts); } }).catch((e) => { if (mounted) setError(e.message); });
-    if (resourceKind === "model") api<{ items: { id: string; name: string }[] }>("/credentials").then((result) => { if (mounted) setCredentials(result.items); }).catch((e) => { if (mounted) setError(e.message); });
+    if (resourceKind === "model" || resourceKind === "embedding") api<{ items: { id: string; name: string }[] }>("/credentials").then((result) => { if (mounted) setCredentials(result.items); }).catch((e) => { if (mounted) setError(e.message); });
+    if (resourceKind === "embedding") setProvider("local");
+    if (resourceKind === "model") setProvider("demo");
     return () => { mounted = false; };
   }, [resourceKind]);
   async function submit(event: FormEvent) {
@@ -91,6 +94,7 @@ function ResourceDialog({ kind, onClose, onCreated }: { kind?: string; onClose: 
       let spec: Record<string, unknown>;
       if (resourceKind === "prompt") spec = { template };
       else if (resourceKind === "model") spec = { provider, model: modelName, base_url: baseUrl, credential_id: credentialId || null };
+      else if (resourceKind === "embedding") spec = { provider, model: modelName, base_url: baseUrl, credential_id: credentialId || null, dimensions: 96 };
       else if (resourceKind === "agent") {
         const model = models.find((item) => item.id === modelId);
         if (!model?.active_version) throw new Error("Choose a published model");
@@ -106,7 +110,7 @@ function ResourceDialog({ kind, onClose, onCreated }: { kind?: string; onClose: 
     <fieldset disabled={busy}>{!kind && <label>Type<select value={resourceKind} onChange={(e) => { setResourceKind(e.target.value); setError(""); }}>{kinds.map((value) => <option key={value} value={value}>{value[0].toUpperCase() + value.slice(1)}</option>)}</select></label>}
       <label>Name<input required maxLength={160} value={name} onChange={(e) => setName(e.target.value)} /></label><label>Slug<input required pattern="[a-z][a-z0-9_.-]{1,99}" value={slug} onChange={(e) => setSlug(e.target.value)} /></label>
       {resourceKind === "prompt" && <label>Template<textarea value={template} onChange={(e) => setTemplate(e.target.value)} /></label>}
-      {resourceKind === "model" && <><label>Provider<select value={provider} onChange={(e) => setProvider(e.target.value)}><option value="demo">Offline demo</option><option value="openai_compatible">OpenAI-compatible</option></select></label><label>Model<input required value={modelName} onChange={(e) => setModelName(e.target.value)} /></label>{provider === "openai_compatible" && <><label>Base URL<input required type="url" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} /></label><label>Credential<select value={credentialId} onChange={(e) => setCredentialId(e.target.value)}><option value="">No credential</option>{credentials.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><p className="muted">Create encrypted credentials in Settings. The deployment must allow the provider host.</p></>}</>}
+      {(resourceKind === "model" || resourceKind === "embedding") && <><label>Provider<select value={provider} onChange={(e) => setProvider(e.target.value)}>{resourceKind === "model" ? <><option value="demo">Offline demo</option><option value="openai_compatible">OpenAI-compatible</option></> : <><option value="local">Offline local</option><option value="openai_compatible">OpenAI-compatible</option></>}</select></label><label>Model<input required value={modelName} onChange={(e) => setModelName(e.target.value)} /></label>{provider === "openai_compatible" && <><label>Base URL<input required type="url" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} /></label><label>Credential<select value={credentialId} onChange={(e) => setCredentialId(e.target.value)}><option value="">No credential</option>{credentials.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><p className="muted">Create encrypted credentials in Settings. The deployment must allow the provider host.</p></>}</>}
       {templates[resourceKind] && <label>Specification JSON<textarea required className="code-editor" value={specs[resourceKind] ?? JSON.stringify(templates[resourceKind], null, 2)} onChange={(e) => setSpecs((previous) => ({ ...previous, [resourceKind]: e.target.value }))} /></label>}
       {resourceKind === "agent" && <><label>Published model<select required value={modelId} onChange={(e) => setModelId(e.target.value)}><option value="">Choose a model</option>{models.map((item) => <option key={item.id} value={item.id}>{item.name} · v{item.active_version}</option>)}</select></label><label>Published system Prompt<select value={promptId} onChange={(e) => setPromptId(e.target.value)}><option value="">No prompt</option>{prompts.map((item) => <option key={item.id} value={item.id}>{item.name} · v{item.active_version}</option>)}</select></label><p className="muted">Use the draft editor to add tools, skills, bundles, knowledge and execution policy before publishing.</p></>}
       <button className="button" type="submit">Create draft</button>

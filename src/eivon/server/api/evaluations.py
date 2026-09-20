@@ -102,6 +102,11 @@ def reflect(job_id: str, request: Request, identity: Identity):
     return request.app.state.evaluations.reflection(identity, job_id)
 
 
+@router.post("/evaluation-jobs/{job_id}/analysis")
+async def analyze(job_id: str, request: Request, identity: Identity):
+    return await request.app.state.evaluations.analyze(identity, job_id)
+
+
 @router.post("/evaluation-jobs/{job_id}/proposals", status_code=201)
 def propose(job_id: str, payload: ProposalInput, request: Request, identity: Identity):
     return request.app.state.evaluations.propose(identity, job_id, **payload.model_dump())

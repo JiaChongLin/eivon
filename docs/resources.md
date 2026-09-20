@@ -1,12 +1,14 @@
 # Resource drafts, releases and rollback
 
-The resource library manages models, prompts, tools, skills, bundles, workflows, Agents and connection configurations. Search by name, filter by type, and use the Active/Archived selector to find resources. Lists are paginated. Archived resources retain their drafts and release history and can be restored.
+The resource library manages models, embedding providers, prompts, tools, skills, bundles, workflows, Agents and connection configurations. Search by name, filter by type, and use the Active/Archived selector to find resources. Lists are paginated. Archived resources retain their drafts and release history and can be restored.
 
 Resource authors need `write` permission. Readers can inspect specifications, dependencies and differences without editing controls; API mutations independently enforce the same permissions.
 
 ## Author a capability
 
 Model creation provides provider, model name, endpoint and encrypted credential selection. Create credentials in Settings; selecting a credential stores its ID, not its value. The deployment's outbound allowlist must permit the provider endpoint before an execution can connect to it.
+
+Embedding resources use the same versioned lifecycle. `provider: local` uses deterministic feature hashing for offline installations; `provider: openai_compatible` calls the bounded `/embeddings` endpoint with an encrypted credential. Knowledge collections pin the embedding resource release used for indexing and querying, and reject searches that combine incompatible releases.
 
 Prompt creation has a template editor. Agent creation selects a published model and optional system prompt. Use the draft JSON editor to configure the rest of the Agent contract, including tools, skills, bundles, knowledge collections and execution policy.
 

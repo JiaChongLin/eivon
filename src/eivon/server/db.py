@@ -194,6 +194,8 @@ class Collection(Base):
     description: Mapped[str] = mapped_column(Text, default="")
     connection_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
     connection_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    embedding_resource_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    embedding_resource_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[float] = mapped_column(Float, default=time.time)
 
 

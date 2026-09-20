@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import json
 import time
 from typing import Any
 
 from jsonschema import Draft202012Validator
 from sqlalchemy import func, select, update
+
+from eivon.adapters.models import CompatibleModel, DemoModel
+from eivon.core.contracts import ModelMessage, ModelSpec
 
 from .db import (
     Database,
@@ -60,8 +64,9 @@ def score_case(case: dict[str, Any], actual: str) -> float:
 
 
 class Evaluations:
-    def __init__(self, database: Database, runs: Runs):
+    def __init__(self, database: Database, runs: Runs, settings=None, security=None):
         self.database, self.runs = database, runs
+        self.settings, self.security = settings, security
 
     @staticmethod
     def _set(db, principal, evaluation_id):
@@ -431,8 +436,106 @@ class Evaluations:
                 "failures": failures,
                 "targets": targets,
                 "proposals": [row_dict(row) for row in proposals],
+                "analysis": job["output"].get("analysis"),
                 "summary": f"{len(failures)} of {len(job['results'])} cases failed the configured checks. Review the evidence before proposing instruction changes.",
             }
+
+    @staticmethod
+    def _analysis_payload(job: dict) -> dict:
+        failures = [
+            {
+                "case_index": row["case_index"],
+                "input": row["input"],
+                "expected": row["expected"],
+                "actual": row["actual"],
+                "status": row["status"],
+            }
+            for row in job["results"]
+            if row["score"] < 1
+        ]
+        return {
+            "evaluation": {
+                "job_id": job["id"],
+                "resource_id": job["input"]["resource_id"],
+                "resource_version": job["input"]["resource_version"],
+                "score": job["output"].get("score", 0),
+            },
+            "failures": failures[:100],
+        }
+
+    def _model_for_job(self, principal, job_id):
+        with self.database.transaction() as db:
+            job = self._job(db, principal, job_id)
+            run = db.get(Run, job.input["run_ids"][0])
+            if run is None:
+                raise ServiceError("not_found", "Evaluation run not found", 404)
+            root = run.snapshot.get("root", {})
+            reference = root.get("spec", {}).get("model_ref")
+            model_resource = run.snapshot.get("resources", {}).get(
+                f"{reference['id']}@{reference['version']}"
+            ) if reference else None
+            if model_resource is None:
+                raise ServiceError("model_unavailable", "The evaluated model release is missing", 409)
+            spec = ModelSpec.model_validate(model_resource["spec"])
+            credential = self.security.credential_value(
+                principal.workspace_id, spec.credential_id
+            ) if self.security else None
+            model = (
+                DemoModel()
+                if spec.provider == "demo"
+                else CompatibleModel(spec, credential, self.settings.allowed_hosts)
+            )
+            return job, model, spec
+
+    @staticmethod
+    def _decode_analysis(text: str) -> dict:
+        clean = text.strip()
+        if clean.startswith("```"):
+            clean = clean.split("\n", 1)[1] if "\n" in clean else clean
+            clean = clean.rsplit("```", 1)[0].strip()
+        try:
+            value = json.loads(clean)
+        except (TypeError, ValueError):
+            value = None
+        if not isinstance(value, dict):
+            return {"summary": clean[:12_000], "patterns": [], "suggestions": [], "structured": False}
+        patterns = value.get("patterns", [])
+        suggestions = value.get("suggestions", [])
+        return {
+            "summary": str(value.get("summary", ""))[:12_000],
+            "patterns": patterns[:20] if isinstance(patterns, list) else [],
+            "suggestions": suggestions[:20] if isinstance(suggestions, list) else [],
+            "structured": True,
+        }
+
+    async def analyze(self, principal, job_id):
+        principal.require("execute")
+        job, model, spec = self._model_for_job(principal, job_id)
+        if job.status not in {"completed", "timed_out"}:
+            raise ServiceError("not_complete", "Wait for evaluation results before analyzing", 409)
+        payload = self._analysis_payload(self.job(principal, job_id))
+        prompt = (
+            "Analyze this agent evaluation. Return JSON only with keys: summary (string), "
+            "patterns (array of concise objects with case_indexes and cause), and suggestions "
+            "(array of objects with resource_id, kind, instruction, rationale). Suggestions "
+            "must be proposed edits, never automatic writes. Evidence follows:\n"
+            + json.dumps(payload, ensure_ascii=False)
+        )
+
+        async def emit(_kind, _data):
+            return None
+
+        response = await model.complete([ModelMessage(role="user", content=prompt)], [], emit)
+        analysis = self._decode_analysis(response.content)
+        analysis["raw"] = response.content[:20_000]
+        analysis["model"] = {"provider": spec.provider, "name": spec.model}
+        with self.database.transaction() as db:
+            current = self._job(db, principal, job_id)
+            output = dict(current.output or {})
+            output["analysis"] = analysis
+            current.output = output
+            audit(db, principal, "evaluation.analyze", job_id, structured=analysis["structured"])
+            return analysis
 
     def propose(self, principal, job_id, resource_id, revision, text, rationale):
         principal.require("write")

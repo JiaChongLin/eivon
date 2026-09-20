@@ -27,6 +27,15 @@ class ModelSpec(Contract):
     supports_tools: bool = True
 
 
+class EmbeddingSpec(Contract):
+    provider: Literal["local", "openai_compatible"] = "local"
+    model: str = Field(default="local-hash", min_length=1, max_length=200)
+    base_url: str = Field(default="https://api.openai.com/v1", max_length=2048)
+    credential_id: str | None = None
+    dimensions: int = Field(default=96, ge=8, le=4096)
+    timeout_seconds: int = Field(default=60, ge=1, le=300)
+
+
 class PromptSpec(Contract):
     template: str = Field(max_length=100_000)
     variables: dict[str, str] = Field(default_factory=dict)
@@ -144,6 +153,7 @@ class ConnectionSpec(Contract):
 
 RESOURCE_SCHEMAS: dict[str, type[Contract]] = {
     "model": ModelSpec,
+    "embedding": EmbeddingSpec,
     "prompt": PromptSpec,
     "tool": ToolSpec,
     "skill": SkillSpec,
@@ -153,7 +163,7 @@ RESOURCE_SCHEMAS: dict[str, type[Contract]] = {
     "connection": ConnectionSpec,
 }
 ResourceKind = Literal[
-    "model", "prompt", "tool", "skill", "bundle", "agent", "workflow", "connection"
+    "model", "embedding", "prompt", "tool", "skill", "bundle", "agent", "workflow", "connection"
 ]
 
 

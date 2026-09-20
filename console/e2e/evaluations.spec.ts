@@ -44,6 +44,8 @@ test("compare historical evaluations, score a case and review an instruction can
   await result.getByRole("button", { name: "Save human review", exact: true }).click();
   await expect(result).toContainText("Human review: 50%");
   await expect(result).toContainText("rule 0%");
+  await details.getByRole("button", { name: "Generate model analysis", exact: true }).click();
+  await expect(details.getByRole("article", { name: "Model generated analysis", exact: true })).toContainText("Offline demo");
   const proposal = details.getByRole("form", { name: "Propose improvement" });
   await proposal.getByLabel("Instruction resource").selectOption(prompt.id);
   await expect(proposal.getByLabel("Current draft instructions")).toHaveValue("Original evaluation instructions");

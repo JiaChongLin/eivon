@@ -11,7 +11,7 @@ from sqlalchemy.exc import IntegrityError
 
 from .db import Base, Database, Meta
 
-CURRENT_SCHEMA_VERSION = 5
+CURRENT_SCHEMA_VERSION = 6
 
 
 def upgrade(database: Database) -> int:
@@ -19,15 +19,16 @@ def upgrade(database: Database) -> int:
 
     Version 1 is the initial metadata bootstrap, version 2 adds persisted
     evaluation results, version 3 links results to durable evaluation Jobs, and
-    version 4 adds append-only human reviews and reviewed improvement proposals, and
-    version 5 adds knowledge connection bindings and deterministic chunk embeddings.
+    version 4 adds append-only human reviews and reviewed improvement proposals,
+    version 5 adds knowledge connection bindings and deterministic chunk embeddings,
+    and version 6 adds pinned embedding resource bindings.
     Existing databases are upgraded idempotently; unknown versions fail closed.
     """
 
     if inspect(database.engine).has_table(Meta.__tablename__):
         with database.transaction() as session:
             version = session.get(Meta, "schema_version")
-            if version is not None and version.value not in {"1", "2", "3", "4", "5"}:
+            if version is not None and version.value not in {"1", "2", "3", "4", "5", "6"}:
                 raise RuntimeError(
                     f"Unsupported database schema version; expected {CURRENT_SCHEMA_VERSION}"
                 )
@@ -35,11 +36,17 @@ def upgrade(database: Database) -> int:
     columns = {
         column["name"] for column in inspect(database.engine).get_columns("evaluation_results")
     }
-    collection_columns = {column["name"] for column in inspect(database.engine).get_columns("knowledge_collections")}
+    collection_columns = {
+        column["name"] for column in inspect(database.engine).get_columns("knowledge_collections")
+    }
     if "connection_id" not in collection_columns:
         with database.engine.begin() as connection:
             connection.execute(text("ALTER TABLE knowledge_collections ADD COLUMN connection_id VARCHAR(32)"))
             connection.execute(text("ALTER TABLE knowledge_collections ADD COLUMN connection_version INTEGER"))
+    if "embedding_resource_id" not in collection_columns:
+        with database.engine.begin() as connection:
+            connection.execute(text("ALTER TABLE knowledge_collections ADD COLUMN embedding_resource_id VARCHAR(32)"))
+            connection.execute(text("ALTER TABLE knowledge_collections ADD COLUMN embedding_resource_version INTEGER"))
     chunk_columns = {column["name"] for column in inspect(database.engine).get_columns("knowledge_chunks")}
     if "embedding" not in chunk_columns:
         with database.engine.begin() as connection:
@@ -60,7 +67,7 @@ def upgrade(database: Database) -> int:
             version = session.get(Meta, "schema_version")
             if version is None:
                 session.add(Meta(key="schema_version", value=str(CURRENT_SCHEMA_VERSION)))
-            elif int(version.value) in {1, 2, 3, 4}:
+            elif int(version.value) in {1, 2, 3, 4, 5}:
                 version.value = str(CURRENT_SCHEMA_VERSION)
             if session.get(Meta, "initialized") is None:
                 session.add(Meta(key="initialized", value="false"))

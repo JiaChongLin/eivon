@@ -22,7 +22,7 @@ def test_sqlite_backup_restore_round_trip(tmp_path):
     (settings.data_dir / "artifacts" / "a1").write_bytes(b"artifact")
     archive = tmp_path / "backup.tar.gz"
     result = backup(settings, archive)
-    assert result["schema_version"] == 5
+    assert result["schema_version"] == 6
     connection = sqlite3.connect(db_path)
     connection.execute("update marker set value='changed'")
     connection.commit()
