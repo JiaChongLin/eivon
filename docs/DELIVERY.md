@@ -43,7 +43,7 @@ Status: runnable foundation release, still pre-1.0. Completed capabilities and o
 - [x] Member add/role/remove, credential rotation, API-key issue/revoke and workspace audit user flows
 - [x] High-load SQLite stress measurements
 - [ ] Production PostgreSQL upgrade/restore rehearsal
-- [ ] Graph workflow canvas if included in the stable-release scope
+- [x] Workflow graph view for the ordered executor and conditional skip edges
 
 ## Implementation log
 
@@ -109,3 +109,7 @@ Stress verification: `PYTHONPATH=src .venv/bin/python scripts/stress_leases.py -
 2026-09-20: Added schema v6 versioned `embedding` resources. Collections pin an embedding release; local feature hashing remains the offline default and OpenAI-compatible `/embeddings` is bounded, allowlisted, credential-aware and dimension-validated. Search rejects collections with incompatible embedding fingerprints.
 
 Analysis and embedding verification: `.venv/bin/pytest -q tests/test_evaluation_review.py tests/test_knowledge.py tests/test_backup.py` passed 13 tests; provider calls use deterministic mocked responses and no real credentials.
+
+2026-09-20: Added a Workflow Studio graph view that renders ordered Input, Tool, Prompt and Condition nodes plus conditional skip edges. The existing step editor remains the source of truth; the graph is an inspection and navigation view, not a claim of arbitrary parallel graph execution.
+
+Graph verification: the workflow browser acceptance now switches to Graph view, verifies rendered nodes, returns to Step editor, and completes the existing publish, wait, approval, cancellation and Run inspection flow.

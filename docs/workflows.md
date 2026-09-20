@@ -1,6 +1,6 @@
 # Workflow authoring and execution
 
-Open **Workflows** to create a workflow. Define an input schema and output template, add ordered steps, then **Save and publish**. Tool and Prompt steps pin an explicit published version of a tool or model. Selecting a different resource selects its active release; the version field can select an older published release. Publishing checks that every dependency exists in the current workspace.
+Open **Workflows** to create a workflow. Define an input schema and output template, add ordered steps, then **Save and publish**. Tool and Prompt steps pin an explicit published version of a tool or model. Selecting a different resource selects its active release; the version field can select an older published release. Publishing checks that every dependency exists in the current workspace. Switch between **Step editor** and **Graph view** to inspect the same draft; the graph shows ordered execution and conditional skip edges.
 
 The editor preserves the full supported workflow contract, including Prompt steps, JSON comparison values, per-step response schemas and output templates. JSON fields retain incomplete edits while typing; saving invalid JSON fails without silently using older values. A publication refreshes the draft revision so the next save remains valid. Publishing includes current editor changes; running always uses the selected published version, never unsaved edits.
 

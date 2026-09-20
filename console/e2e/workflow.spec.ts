@@ -37,6 +37,9 @@ test("setup, author, publish, branch, resume input, approve and inspect a workfl
   await page.getByRole("button", { name: "Save and publish", exact: true }).click();
   await expect(page.getByRole("status")).toHaveText("Release published");
   await expect(page.getByRole("heading", { name: "Run published v1", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Graph view", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Workflow graph", exact: true })).toContainText("condition_1");
+  await page.getByRole("button", { name: "Step editor", exact: true }).click();
   // Publishing increments the revision; an immediate subsequent save must work.
   await page.getByLabel("Description", { exact: true }).fill("Updated after publishing");
   await page.getByRole("button", { name: "Save draft", exact: true }).click();

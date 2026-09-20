@@ -42,6 +42,7 @@ export function WorkflowStudio() {
   const [busy, setBusy] = useState(false);
   const [runInput, setRunInput] = useState("{}");
   const [runId, setRunId] = useState("");
+  const [view, setView] = useState<"steps" | "graph">("steps");
 
   async function load() {
     const [workflows, availableTools, availableModels] = await Promise.all([allResources("workflow"), allResources("tool"), allResources("model")]);
@@ -125,14 +126,15 @@ export function WorkflowStudio() {
           <label>Description<input value={description} onChange={(e) => setDescription(e.target.value)} /></label>
           <details><summary>Workflow input and output</summary><label>Input schema JSON<textarea value={inputSchema} onChange={(e) => setInputSchema(e.target.value)} /></label><label>Output template<textarea value={outputTemplate} onChange={(e) => setOutputTemplate(e.target.value)} /></label></details>
           <p className="muted">Bind values with {"{{input.field}}"}, {"{{context.field}}"} or {"{{steps.step_id.data.field}}"}. A whole placeholder keeps its JSON type.</p>
-          <div className="workflow-canvas">{steps.map((step, index) => <section className="workflow-step" key={step.key} aria-label={`Step ${index + 1}`}>
+          <div className="workflow-view-switch" aria-label="Workflow view"><button type="button" className={view === "steps" ? "active" : "text-button"} onClick={() => setView("steps")}>Step editor</button><button type="button" className={view === "graph" ? "active" : "text-button"} onClick={() => setView("graph")}>Graph view</button></div>
+          {view === "steps" ? <div className="workflow-canvas">{steps.map((step, index) => <section className="workflow-step" key={step.key} aria-label={`Step ${index + 1}`}>
             <div className="step-number">{index + 1}</div><div className="step-content"><div className="step-title"><span className="badge">{step.type}</span><label>Step ID<input required pattern="[a-z][a-z0-9_]{0,63}" value={step.id} onChange={(e) => { const id = e.target.value; setSteps((previous) => previous.map((item) => ({ ...item, ...(item.key === step.key ? { id } : {}), skip_step_ids: item.skip_step_ids?.map((target) => target === step.id ? id : target) }))); }} /></label></div>
               {step.type === "input" && <><label>Question<input required value={step.question || ""} onChange={(e) => update(step.key, { question: e.target.value })} /></label><label>Response schema JSON<textarea value={step.json} onChange={(e) => update(step.key, { json: e.target.value })} /></label></>}
               {step.type === "tool" && <>{reference(step, "tool")}<label>Arguments JSON<textarea value={step.json} onChange={(e) => update(step.key, { json: e.target.value })} /></label></>}
               {step.type === "prompt" && <>{reference(step, "model")}<label>Prompt template<textarea required value={step.template || ""} onChange={(e) => update(step.key, { template: e.target.value })} /></label></>}
               {step.type === "condition" && <><label>Value path<input required value={step.value_path || ""} onChange={(e) => update(step.key, { value_path: e.target.value })} /></label><label>Equals JSON<textarea value={step.json} onChange={(e) => update(step.key, { json: e.target.value })} /></label><div className="skip-options"><p className="muted">Skip selected later steps when the value matches:</p>{steps.slice(index + 1).map((target) => <label key={target.key}><input type="checkbox" checked={step.skip_step_ids?.includes(target.id) || false} onChange={(e) => update(step.key, { skip_step_ids: e.target.checked ? [...(step.skip_step_ids || []), target.id] : step.skip_step_ids?.filter((id) => id !== target.id) })} />{target.id}</label>)}</div></>}
               <div className="workflow-actions"><button type="button" className="text-button" disabled={!index} onClick={() => move(index, -1)}>Move up</button><button type="button" className="text-button" disabled={index === steps.length - 1} onClick={() => move(index, 1)}>Move down</button><button type="button" className="text-button" onClick={() => setSteps((previous) => previous.filter((item) => item.key !== step.key).map((item) => ({ ...item, skip_step_ids: item.skip_step_ids?.filter((id) => id !== step.id) })))}>Remove step</button></div>
-            </div></section>)}</div>
+            </div></section>)}</div> : <WorkflowGraph steps={steps} />}
           <div className="workflow-actions">{(["input", "tool", "prompt", "condition"] as const).map((type) => <button type="button" className="button" key={type} onClick={() => add(type)}>+ {type[0].toUpperCase() + type.slice(1)}</button>)}<span className="workflow-spacer" /><button className="button" type="submit">Save draft</button><button className="button" type="button" onClick={(event) => { if (event.currentTarget.form?.reportValidity()) void save(true); }}>Save and publish</button></div>
         </fieldset>
       </form>
@@ -140,4 +142,8 @@ export function WorkflowStudio() {
     {selected?.active_version && <section className="settings-card run-launcher"><h3>Run published v{selected.active_version}</h3><p className="muted">Runs use the published release. Save and publish to include your latest edits.</p><label>Run input JSON<textarea value={runInput} onChange={(e) => setRunInput(e.target.value)} /></label><button className="button" disabled={busy} onClick={() => void start()}>Run published workflow</button></section>}
     {runId && <RunInspector key={runId} runId={runId} />}
   </section>;
+}
+
+function WorkflowGraph({ steps }: { steps: Row[] }) {
+  return <section className="workflow-graph" aria-label="Workflow graph"><div className="graph-header"><strong>Execution graph</strong><span className="muted">Ordered flow with conditional skip edges</span></div>{steps.length === 0 && <p className="muted">Add steps to see the graph.</p>}{steps.map((step, index) => <div className="graph-column" key={step.key}><article className={`graph-node graph-${step.type}`}><div><span className="badge">{step.type}</span><strong>{step.id}</strong></div>{step.type === "condition" && <small>{step.value_path} = {JSON.stringify(step.equals)}</small>}{step.type === "tool" && <small>Tool · {step.tool_ref?.id || "unbound"}</small>}{step.type === "prompt" && <small>Model · {step.model_ref?.id || "unbound"}</small>}{step.type === "input" && <small>{step.question}</small>}</article>{index < steps.length - 1 && <div className="graph-edge" aria-hidden="true">↓</div>}{step.type === "condition" && step.skip_step_ids?.length ? <div className="graph-branch">skips → {step.skip_step_ids.join(", ")}</div> : null}</div>)}</section>;
 }
