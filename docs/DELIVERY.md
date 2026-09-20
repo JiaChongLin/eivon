@@ -30,8 +30,9 @@ Status: runnable foundation release. The repository is still pre-1.0; the unchec
 
 2026-09-20: Created a standalone distribution directory and package skeleton.
 Current FarmLynk application code and pre-existing untracked files are untouched.
-2026-09-20: Added durable Run worker, workflow baseline execution, knowledge APIs, management console, Docker/Compose and 34 automated tests. Browser E2E, isolated extension runners, version comparisons and production operations hardening remain open release work.
+2026-09-20: Added durable Run worker, workflow baseline execution, knowledge APIs, management console, Docker/Compose and 35 automated tests. Browser E2E, isolated extension runners, version comparisons and production operations hardening remain open release work.
 2026-09-20: Added Knowledge and Members console pages plus an approval card in Playground so waiting Runs can be resumed from the UI.
 2026-09-20: Added schema migration CLI, persisted evaluation sets/results, evaluation console, MCP Streamable HTTP calls, clean source export tooling and lease-fencing coverage.
+2026-09-20: Verified a tracked-file export on a clean temporary directory: schema migration, worker startup, Python wheel build and console install/build all succeeded.
 
 2026-09-20: Created independent Eivon project in ~/work/eivon. Original scaffold retained.
