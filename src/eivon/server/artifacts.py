@@ -5,6 +5,8 @@ from __future__ import annotations
 import hashlib
 import re
 
+from sqlalchemy import select
+
 from .db import Artifact, Database, row_dict, uid
 from .errors import ServiceError
 from .security import Principal
@@ -62,3 +64,16 @@ class Artifacts:
             ):
                 raise ServiceError("not_found", "Artifact not found", 404)
             return row_dict(artifact)
+
+    def for_run(self, principal: Principal, run_id: str) -> list[dict]:
+        principal.require("read")
+        filters = [Artifact.workspace_id == principal.workspace_id, Artifact.run_id == run_id]
+        if "admin" not in principal.permissions:
+            filters.append(Artifact.user_id == principal.user_id)
+        with self.database.transaction() as db:
+            return [
+                row_dict(item)
+                for item in db.scalars(
+                    select(Artifact).where(*filters).order_by(Artifact.created_at, Artifact.id)
+                )
+            ]

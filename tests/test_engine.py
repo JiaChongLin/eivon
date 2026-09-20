@@ -95,3 +95,44 @@ async def test_cancellation_cancels_underlying_task():
     with pytest.raises(ExecutionCancelled):
         await cancellable(operation(), cancelled, 5)
     assert stopped.is_set()
+
+
+async def test_agent_cancellation_interrupts_running_model_without_an_outer_wrapper():
+    started, stopped, cancelled = asyncio.Event(), asyncio.Event(), asyncio.Event()
+
+    class SlowModel:
+        async def complete(self, *args):
+            started.set()
+            try:
+                await asyncio.Event().wait()
+            finally:
+                stopped.set()
+
+    async def is_cancelled():
+        return cancelled.is_set()
+
+    engine = AgentEngine(SlowModel(), ApprovingTool(), [], ExecutionPolicy())
+    task = asyncio.create_task(engine.run(EngineState(), noop, noop, is_cancelled))
+    await asyncio.wait_for(started.wait(), 1)
+    cancelled.set()
+    with pytest.raises(ExecutionCancelled):
+        await asyncio.wait_for(task, 1)
+    assert stopped.is_set()
+
+
+async def test_active_time_budget_persists_across_resume_and_interrupts_model():
+    stopped = asyncio.Event()
+
+    class SlowModel:
+        async def complete(self, *args):
+            try:
+                await asyncio.Event().wait()
+            finally:
+                stopped.set()
+
+    engine = AgentEngine(SlowModel(), ApprovingTool(), [], ExecutionPolicy(timeout_seconds=5))
+    restored = EngineState.model_validate({"execution_seconds": 4.9})
+    with pytest.raises(BudgetExceeded, match="time budget"):
+        await asyncio.wait_for(engine.run(restored, noop, noop, never_cancelled), 1)
+    assert stopped.is_set()
+    assert restored.execution_seconds >= 5

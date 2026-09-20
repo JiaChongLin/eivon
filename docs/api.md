@@ -29,3 +29,7 @@ A Tool resource may use `adapter: mcp` with `config.url` and an optional `config
 ## Workflow execution
 
 Workflow Runs accept a separate `input` object validated against the published workflow schema. The [workflow guide](workflows.md) documents typed data bindings, conditions, input/approval resume and per-step model selection. Both Workflow Studio and Run history provide an interactive Run inspector.
+
+## Conversations and generated files
+
+Create a conversation with `POST /sessions` (`agent_id`, `title`, `context`), then send `session_id` in each `POST /runs` request. `GET /sessions/{id}` returns the persisted turns. Only one active or waiting Run is allowed per session. `GET /runs/{id}/artifacts` lists its authorized generated files; use `/artifacts/{id}/download` for authenticated downloads, including Unicode filenames. See the [conversation guide](conversations.md).

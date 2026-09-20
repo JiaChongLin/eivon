@@ -6,6 +6,10 @@ Eivon is a self-hosted, domain-independent agent workbench. It gives teams a con
 
 The core does not know what industry an Agent serves. A customer support Agent, an operations Agent and an agriculture Agent use the same resource contracts. Business entities and permissions belong in extensions and Bundle packages.
 
+![Eivon conversations and private file delivery](docs/images/agent-conversation.png)
+
+Console screenshot from the deterministic browser acceptance fixture. See the [conversation guide](docs/conversations.md) for multi-turn sessions, tool approvals and generated files.
+
 ## What is included
 
 - A versioned resource model for models, prompts, tools, skills, Bundles, Agents and Workflows.

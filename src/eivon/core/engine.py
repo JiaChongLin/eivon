@@ -21,6 +21,7 @@ class EngineState(Contract):
     tool_calls: int = 0
     usage: dict[str, int] = Field(default_factory=dict)
     output: str = ""
+    execution_seconds: float = Field(default=0, ge=0)
 
 
 class Model(Protocol):
@@ -60,9 +61,32 @@ class AgentEngine:
         save: Callable[[EngineState], Awaitable[None]],
         cancelled: Callable[[], Awaitable[bool]],
     ) -> EngineState:
+        loop = asyncio.get_running_loop()
+        last_accounted = loop.time()
+
+        def account():
+            nonlocal last_accounted
+            now = loop.time()
+            state.execution_seconds += max(0, now - last_accounted)
+            last_accounted = now
+
         async def check():
+            account()
             if await cancelled():
                 raise ExecutionCancelled()
+            if state.execution_seconds >= self.policy.timeout_seconds:
+                raise BudgetExceeded("Agent execution time budget exhausted")
+
+        async def invoke(operation):
+            account()
+            try:
+                return await cancellable(
+                    operation, cancelled, self.policy.timeout_seconds - state.execution_seconds
+                )
+            except TimeoutError as exc:
+                raise BudgetExceeded("Agent execution time budget exhausted") from exc
+            finally:
+                account()
 
         while state.iterations < self.policy.max_iterations or state.pending_calls:
             await check()
@@ -76,7 +100,7 @@ class AgentEngine:
                     "tool.started",
                     {"call_id": call.id, "name": call.name, "arguments": call.arguments},
                 )
-                result = await self.tools.invoke(call)
+                result = await invoke(self.tools.invoke(call))
                 state.tool_calls += 1
                 state.messages.append(
                     ModelMessage(
@@ -99,7 +123,7 @@ class AgentEngine:
                 )
             await check()
             await emit("model.started", {"iteration": state.iterations + 1})
-            response = await self.model.complete(state.messages, self.definitions, emit)
+            response = await invoke(self.model.complete(state.messages, self.definitions, emit))
             state.iterations += 1
             for key, amount in response.usage.items():
                 state.usage[key] = state.usage.get(key, 0) + amount

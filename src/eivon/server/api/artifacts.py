@@ -1,3 +1,5 @@
+from urllib.parse import quote
+
 from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse
 
@@ -23,5 +25,13 @@ def download(artifact_id: str, request: Request, identity: Identity):
         path,
         media_type=item["media_type"],
         filename=item["name"],
-        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{item['name']}"},
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{quote(item['name'], safe='')}"
+        },
     )
+
+
+@router.get("/runs/{run_id}/artifacts")
+def run_artifacts(run_id: str, request: Request, identity: Identity):
+    request.app.state.runs.get(identity, run_id)
+    return {"items": request.app.state.artifacts.for_run(identity, run_id)}

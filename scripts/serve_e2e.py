@@ -4,11 +4,14 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import uvicorn
+from browser_model import BrowserModel
 
+from eivon.server import worker
 from eivon.server.app import create_app
 from eivon.server.settings import Settings
 
 if __name__ == "__main__":
+    worker.CompatibleModel = BrowserModel
     with TemporaryDirectory(prefix="eivon-e2e-") as directory:
         app = create_app(
             Settings(
@@ -17,7 +20,7 @@ if __name__ == "__main__":
                 secret_key="",
                 extensions=(),
                 setup_token="eivon-browser-test",
-                allowed_hosts=(),
+                allowed_hosts=("model.example.test",),
                 secure_cookies=False,
                 console_dir=Path(__file__).resolve().parents[1] / "console" / "dist",
                 worker_poll_seconds=0.05,

@@ -22,6 +22,7 @@ from eivon.core.engine import (
     PauseExecution,
     cancellable,
 )
+from eivon.core.prompts import initial_messages
 from eivon.core.workflows import (
     WorkflowBindingError,
     bind_arguments,
@@ -146,13 +147,8 @@ class RunWorker:
         checkpoint = item.get("checkpoint", {})
         if checkpoint.get("engine_state"):
             state = EngineState.model_validate(checkpoint["engine_state"])
-            # Approval resume state contains the already emitted tool call; continue it.
-            state.pending_calls = (
-                [state.pending_calls[state.pending_index]]
-                if state.pending_index < len(state.pending_calls)
-                else state.pending_calls
-            )
-            state.pending_index = 0
+            # Keep both the completed prefix and all pending calls. The engine resumes
+            # from pending_index; slicing loses the remaining calls in the batch.
         else:
             state = EngineState(messages=messages)
         policy = ExecutionPolicy.model_validate(root["spec"]["policy"])
@@ -422,21 +418,7 @@ class RunWorker:
     def _initial_messages(
         self, agent_spec: dict, resources: dict, item: dict
     ) -> list[ModelMessage]:
-        system_parts = [
-            "You are an agent running inside Eivon. Follow the configured tools, skills and execution policy. Use current tool results as evidence."
-        ]
-        for ref in agent_spec.get("prompt_refs", []):
-            prompt = resources.get(f"{ref['id']}@{ref['version']}")
-            if prompt:
-                system_parts.append(prompt["spec"]["template"])
-        system_parts.append(
-            "Business context (trusted by the host): " + str(item.get("business_context", {}))
-        )
-        messages = [ModelMessage(role="system", content="\n\n".join(system_parts))]
-        for history in item.get("history", []):
-            messages.append(ModelMessage.model_validate(history))
-        messages.append(ModelMessage(role="user", content=str(item["input"].get("message", ""))))
-        return messages
+        return initial_messages(agent_spec, resources, item)
 
     def _emit(self, run_id: str, kind: str, data: dict):
         try:

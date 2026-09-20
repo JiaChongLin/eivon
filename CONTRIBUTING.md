@@ -40,3 +40,5 @@ npm run test:e2e
 ```
 
 The tests launch a disposable API/database on `127.0.0.1:18787` and stop it on completion. They never connect to an existing instance. On a workstation with Chrome installed, set `EIVON_TEST_CHROME` to its executable path to use that browser instead of downloading Playwright Chromium. Failure screenshots and traces are written under `console/test-results/` (ignored by Git). The GitHub Actions workflow runs backend tests, the frontend build and browser acceptance checks.
+
+The browser suite currently covers workflow authoring/execution and UI-authored Agents with multi-turn conversations, approvals, file downloads and cancellation. `scripts/browser_model.py` is a deterministic HTTP transport fixture loaded only by `scripts/serve_e2e.py`; it is not part of the production runtime.

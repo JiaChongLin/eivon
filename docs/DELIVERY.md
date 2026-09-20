@@ -30,7 +30,8 @@ Status: runnable foundation release, still pre-1.0. Completed capabilities and o
 
 ## Outstanding release work
 
-- [ ] Agent/chat, artifact delivery, resource administration and workspace isolation browser E2E
+- [x] Agent resource authoring, multi-turn chat, file approval/download, conversation recovery and cancellation browser E2E
+- [ ] Broader resource administration and workspace isolation browser E2E
 - [ ] Isolated extension runners; Python imports currently remain trusted deployment code
 - [ ] Knowledge connection management and semantic retrieval
 - [ ] Side-by-side evaluation comparison and reviewed improvement suggestions
@@ -59,3 +60,5 @@ Verification for the workflow completion slice:
 - `npm run build --prefix console`: passed.
 - `EIVON_TEST_CHROME='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' npm run test:e2e --prefix console`: 1 complete browser acceptance scenario passed; a fresh temporary database/server was used.
 - GitHub Actions workflow is committed configuration; a hosted CI run has not been performed because the repository has not been published.
+
+2026-09-20: Fixed Agent batch approval resume and active-time budget enforcement. Published Bundle prompts and skill instructions now enter the model context. Added persisted Playground conversations, private artifact listings and Unicode downloads, plus an Agent browser acceptance scenario and a real console screenshot. Verification: 45 backend tests passed; 2 browser scenarios passed together; frontend build passed. Browser model responses are deterministic fixtures, not live provider verification.

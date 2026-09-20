@@ -1,17 +1,10 @@
 import { expect, test } from "@playwright/test";
+import { signInThroughUI } from "./auth";
 
 test("setup, author, publish, branch, resume input, approve and inspect a workflow", async ({ page }) => {
   const pageErrors: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
-  await page.goto("/");
-  await page.getByLabel("Setup token").fill("eivon-browser-test");
-  await page.getByLabel("Your name").fill("Framework tester");
-  await page.getByLabel("Email", { exact: true }).fill("browser@example.test");
-  await page.getByLabel("Password", { exact: true }).fill("browser-test-password");
-  const setupResponse = page.waitForResponse((response) => response.url().endsWith("/api/v1/setup") && response.request().method() === "POST");
-  await page.getByRole("button", { name: "Initialize Eivon" }).click();
-  const setup = await (await setupResponse).json();
-  await expect(page.getByRole("heading", { name: "Overview", exact: true })).toBeVisible();
+  const setup = await signInThroughUI(page);
   // Synthetic dependencies, no external provider or API credentials.
   async function resource(kind: string, slug: string, spec: object) {
     const created = await page.request.post("/api/v1/resources", { headers: { "x-csrf-token": setup.csrf_token }, data: { kind, name: slug, slug, spec } });
@@ -54,7 +47,9 @@ test("setup, author, publish, branch, resume input, approve and inspect a workfl
   await expect(page.getByRole("region", { name: "Step 1", exact: true }).getByLabel("tool_1", { exact: true })).toBeChecked();
   await expect(page.getByRole("region", { name: "Step 5", exact: true }).getByLabel("Prompt template")).toHaveValue("Summarize {{steps.tool_2.data}}");
   await page.getByLabel("Run input JSON").fill('{"skip":true,"value":[3,false]}');
+  const firstRunResponse = page.waitForResponse((response) => response.url().endsWith("/api/v1/runs") && response.request().method() === "POST");
   await page.getByRole("button", { name: "Run published workflow", exact: true }).click();
+  const firstRunId = (await (await firstRunResponse).json()).id;
   const inspector = page.getByRole("region", { name: "Run details" });
   await expect(inspector.getByRole("status")).toHaveText("waiting_input");
   await inspector.getByRole("textbox", { name: "Response JSON", exact: true }).fill("{}");
@@ -73,7 +68,7 @@ test("setup, author, publish, branch, resume input, approve and inspect a workfl
   // Run history is a durable recovery entry point after leaving the editor.
   await page.getByRole("button", { name: "06 Run history", exact: true }).click();
   await page.getByRole("combobox", { name: "Status", exact: true }).selectOption("completed");
-  await page.getByRole("button", { name: /^Inspect run / }).click();
+  await page.getByRole("button", { name: `Inspect run ${firstRunId}`, exact: true }).click();
   await expect(page.getByRole("region", { name: "Run details" }).getByRole("status")).toHaveText("completed");
   await expect(page.getByTestId("run-output")).toHaveText('{"value": [3, false], "answer": {}}');
   expect(pageErrors).toEqual([]);
