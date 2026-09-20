@@ -12,8 +12,10 @@ services:
     volumes:
       - eivon-data:/var/lib/eivon
     depends_on:
-      - eivon
-      - postgres
+      eivon:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
 volumes:
   eivon-data:
     external: true

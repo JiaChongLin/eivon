@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 for command in [
-    [str(ROOT / ".venv/bin/ruff"), "check", "src", "tests"],
+    [str(ROOT / ".venv/bin/ruff"), "check", "src", "tests", "examples"],
     [str(ROOT / ".venv/bin/python"), "-m", "pytest", "-q"],
     ["npm", "run", "build", "--prefix", "console"],
 ]:

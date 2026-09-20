@@ -17,3 +17,11 @@ Create a Run with `POST /runs`, read ordered events with `GET /runs/{id}/events`
 ## Domain data
 
 Knowledge collections and documents use `/knowledge/collections` and `/knowledge/documents`; lexical retrieval is available at `/knowledge/search`. Domain packages should put their business context, tools and authorization in Bundles or trusted extensions while keeping core resource contracts stable.
+
+## Evaluations
+
+Create a JSON evaluation set with `POST /evaluations`. Each case has an `input`, an optional `context`, an `expected` string and a `match` mode (`contains`, `exact` or `nonempty`). `POST /evaluations/{id}/run` creates one immutable Run per case and returns a durable evaluation Job. Poll `/evaluation-jobs/{id}` and inspect `/evaluations/{id}` for per-case results and the aggregate score.
+
+## MCP tools
+
+A Tool resource may use `adapter: mcp` with `config.url` and an optional `config.tool`. Eivon sends a Streamable HTTP JSON-RPC `tools/call` request through the same outbound host allowlist, credential, timeout, result-size and approval checks as HTTP tools. Server discovery and process-hosted transports belong in deployment extensions.

@@ -11,6 +11,11 @@ services:
       EIVON_DATABASE_URL: postgresql+psycopg://eivon:${POSTGRES_PASSWORD:-change-me}@postgres:5432/eivon
       EIVON_INLINE_WORKER: "true"
       EIVON_SECURE_COOKIES: "false"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8787/health/live')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
     volumes:
       - eivon-data:/var/lib/eivon
     depends_on:

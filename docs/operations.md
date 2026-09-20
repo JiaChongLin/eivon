@@ -4,9 +4,11 @@
 
 Use `eivon init` to create the data directory and setup token, then run `eivon serve`. SQLite is the default for a single local instance. Set `EIVON_DATABASE_URL=postgresql+psycopg://…` and a shared `EIVON_SECRET_KEY` for a multi-process deployment.
 
+Run `eivon migrate` before starting API and worker processes. The command applies the numbered schema boundary and prints the resulting version.
+
 ## Separate workers
 
-Set `EIVON_INLINE_WORKER=false` for the API process and run `eivon worker` in one or more worker containers. Workers use database leases and ordered event writes. A lease expiry closes the Run with an explicit side-effect warning; operators should inspect external systems before rerunning.
+Set `EIVON_INLINE_WORKER=false` for the API process and run `eivon worker` in one or more worker containers. Workers use database leases and ordered event writes; they also reconcile durable evaluation Jobs after a restart. A lease expiry closes the Run with an explicit side-effect warning; operators should inspect external systems before rerunning.
 
 ## Extension trust
 

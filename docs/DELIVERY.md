@@ -13,24 +13,25 @@ Status: runnable foundation release. The repository is still pre-1.0; the unchec
 - [x] Execution-time authorization, tool approvals and safe extension boundaries (trusted Python extensions remain deployment-scoped)
 - [x] Durable runs, ordered events, sessions, artifacts and worker coordination
 - [x] Knowledge ingestion, lexical retrieval and source metadata; semantic citations and connection management remain
-- [ ] Evaluations, version comparisons and reviewed improvement suggestions
+- [x] Evaluation sets, batch Runs and deterministic result scoring; version comparison and reviewed improvement suggestions remain
 - [x] Complete console: setup, dashboard, agents, resources, playground, chat
-- [ ] Complete console: runs, knowledge, evaluations, approvals, members, settings (runs, knowledge, approvals and members are now present; evaluations and richer administration remain)
+- [x] Complete console: runs, knowledge, evaluations, approvals, members, settings (richer administration and version comparison remain)
 - [x] Workflow baseline execution with documented supported semantics (visual editing remains)
-- [x] HTTP and trusted Python extension integration; MCP adapter remains
+- [x] HTTP, trusted Python and Streamable HTTP MCP tool integration
 - [x] Generic starter examples and two distinct synthetic domain bundles
-- [x] Docker/Compose, initial schema bootstrap and deployment instructions
+- [x] Docker/Compose, versioned schema bootstrap and deployment instructions
 - [x] README, architecture, API, extension, operations and contribution documentation
-- [x] License and publication inventory; clean export tooling remains
+- [x] License, publication inventory and clean export tooling
 - [x] Backend contracts/integration tests and frontend build
-- [ ] Multi-worker cancellation/recovery, permission and failure-mode verification
+- [ ] Multi-worker cancellation/recovery stress; lease fencing and permission/failure-mode coverage are verified
 - [ ] Clean-machine startup and release artifact verification
 
 ## Implementation log
 
 2026-09-20: Created a standalone distribution directory and package skeleton.
 Current FarmLynk application code and pre-existing untracked files are untouched.
-2026-09-20: Added durable Run worker, workflow baseline execution, knowledge APIs, management console, Docker/Compose and 23 automated tests. Browser E2E, formal migrations, MCP, isolated extension runner and evaluation UI remain open release work.
+2026-09-20: Added durable Run worker, workflow baseline execution, knowledge APIs, management console, Docker/Compose and 34 automated tests. Browser E2E, isolated extension runners, version comparisons and production operations hardening remain open release work.
 2026-09-20: Added Knowledge and Members console pages plus an approval card in Playground so waiting Runs can be resumed from the UI.
+2026-09-20: Added schema migration CLI, persisted evaluation sets/results, evaluation console, MCP Streamable HTTP calls, clean source export tooling and lease-fencing coverage.
 
 2026-09-20: Created independent Eivon project in ~/work/eivon. Original scaffold retained.

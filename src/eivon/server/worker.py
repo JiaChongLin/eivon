@@ -25,6 +25,7 @@ from eivon.core.engine import (
 
 from .artifacts import Artifacts
 from .db import Database
+from .evaluations import Evaluations
 from .knowledge import Knowledge
 from .runs import LeaseLost, Runs
 from .security import Security
@@ -47,11 +48,13 @@ class RunWorker:
         self.database, self.runs, self.settings, self.security = database, runs, settings, security
         self.artifacts, self.extensions, self.knowledge = artifacts, extensions, knowledge
         self.worker_id = worker_id or f"worker-{os.getpid()}"
+        self.evaluations = Evaluations(database, runs)
 
     async def once(self) -> bool:
+        scored = self.evaluations.reconcile()
         item = self.runs.claim(self.worker_id, self.settings.lease_seconds)
         if item is None:
-            return False
+            return bool(scored)
         try:
             await self.execute(item)
         except LeaseLost:
@@ -66,6 +69,7 @@ class RunWorker:
                 )
             except Exception:
                 pass
+        self.evaluations.reconcile()
         return True
 
     async def loop(self, stop: asyncio.Event | None = None):

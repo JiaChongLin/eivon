@@ -15,6 +15,7 @@ The core does not know what industry an Agent serves. A customer support Agent, 
 - Durable Runs with ordered events, cancellation, approval/input waiting, resume support and worker leases.
 - Workspace-scoped resources, roles, API keys, CSRF-protected sessions, encrypted credentials and audit events.
 - A dark management console with setup, overview, resource authoring, Agent publishing, Playground, Run history, Knowledge indexing/search and workspace Members.
+- A lightweight evaluation loop for JSON test sets, batch Runs and exact/contains/nonempty result scoring.
 - SQLite for a zero-dependency local instance and PostgreSQL for deployment.
 - A deployment-time Python extension SDK; HTTP tools are configured with explicit server allowlists.
 
@@ -29,6 +30,7 @@ python -m venv .venv
 .venv/bin/pip install -e '.[dev]'
 cd console && npm install && npm run build && cd ..
 .venv/bin/eivon init
+.venv/bin/eivon migrate
 .venv/bin/eivon serve --host 127.0.0.1 --port 8787
 ```
 
@@ -61,6 +63,7 @@ The FastAPI schema is available at `/docs`. Important groups are:
 - `/api/v1/setup`, `/auth/*`, `/members`, `/api-keys`, `/credentials`
 - `/api/v1/resources`, `/resources/{id}/publish`, `/resources/{id}/versions`
 - `/api/v1/sessions`, `/runs`, `/runs/{id}/events`, `/runs/{id}/cancel`, `/runs/{id}/resume`
+- `/api/v1/evaluations`, `/evaluations/{id}/run`, `/evaluation-jobs/{id}`
 - `/api/v1/artifacts/{id}/download`
 
 Use a session cookie from the browser or an API key as `Authorization: Bearer eiv_...`. Cookie writes require the `x-csrf-token` returned by setup/login. API keys are workspace-bound and only shown once when created.

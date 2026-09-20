@@ -24,4 +24,4 @@ HTTP tools use `config.url`, `config.method` and an optional `credential_id`. Th
 
 ## MCP and isolated runners
 
-MCP transport and isolated extension runners are deliberately separate roadmap items. Do not treat deployment-time Python import as a sandbox or expose it to untrusted package authors. See `docs/DELIVERY.md`.
+Tool resources with `adapter: mcp` use a Streamable HTTP JSON-RPC `tools/call` request. Set `config.url`, optionally set `config.tool`, and allow the host with `EIVON_OUTBOUND_HOSTS`; credentials and approvals use the same boundary as HTTP tools. Server discovery, stdio transport and isolated extension runners belong in deployment packages. Do not treat deployment-time Python import as a sandbox or expose it to untrusted package authors. See `docs/DELIVERY.md`.

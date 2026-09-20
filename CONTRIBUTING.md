@@ -8,8 +8,10 @@ Eivon is a domain-independent, self-hosted agent workbench. Keep the core free o
 python -m venv .venv
 .venv/bin/pip install -e '.[dev,postgres]'
 .venv/bin/pytest -q
-.venv/bin/ruff check src tests
+.venv/bin/ruff check src tests examples
 cd console && npm install && npm run build
+# Before publishing a release
+python scripts/export_release.py /tmp/eivon-release
 ```
 
 ## Contract rules

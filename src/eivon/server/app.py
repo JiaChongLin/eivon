@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import secrets
 from contextlib import asynccontextmanager
@@ -18,10 +19,12 @@ from eivon.core.extensions import ExtensionRegistry
 
 from .api import artifacts as artifacts_api
 from .api import auth, resources, runs, system
+from .api import evaluations as evaluations_api
 from .api import knowledge as knowledge_api
 from .artifacts import Artifacts
 from .db import Database
 from .errors import ServiceError
+from .evaluations import Evaluations
 from .knowledge import Knowledge
 from .resources import Resources
 from .runs import Runs
@@ -43,14 +46,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     artifacts = Artifacts(database, settings)
     knowledge = Knowledge(database)
     run_service = Runs(database, resources_service)
+    evaluations = Evaluations(database, run_service)
     worker = RunWorker(database, run_service, settings, security, artifacts, extensions, knowledge)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         task = None
         if settings.inline_worker:
-            import asyncio
-
             task = asyncio.create_task(worker.loop())
         try:
             yield
@@ -73,6 +75,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.runs = run_service
     app.state.worker = worker
     app.state.knowledge = knowledge
+    app.state.evaluations = evaluations
 
     @app.middleware("http")
     async def request_boundary(request: Request, call_next):
@@ -168,6 +171,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(system.router, prefix="/api/v1", tags=["system"])
     app.include_router(artifacts_api.router, prefix="/api/v1", tags=["artifacts"])
     app.include_router(knowledge_api.router, prefix="/api/v1", tags=["knowledge"])
+    app.include_router(evaluations_api.router, prefix="/api/v1", tags=["evaluations"])
     console_dir = settings.console_dir or Path(__file__).resolve().parents[3] / "console" / "dist"
     if console_dir.is_dir():
         app.mount("/assets", StaticFiles(directory=console_dir / "assets"), name="console-assets")

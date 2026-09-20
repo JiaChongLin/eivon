@@ -13,6 +13,8 @@ from datetime import UTC, datetime
 import httpx
 from jsonschema import Draft202012Validator
 
+from eivon.adapters.mcp import McpError
+from eivon.adapters.mcp import call_http as call_mcp_http
 from eivon.adapters.network import check_destination
 from eivon.core.contracts import ExecutionContext, ToolCall, ToolResult, ToolSpec
 from eivon.core.engine import PauseExecution
@@ -306,4 +308,36 @@ class ToolRuntime:
                     except json.JSONDecodeError:
                         data = {"text": text}
                     return ToolResult(success=True, data=data)
-        raise ValueError("MCP adapter has not been installed")
+        if spec.adapter == "mcp":
+            url = check_destination(str(spec.config["url"]), self.settings.allowed_hosts)
+            tool = str(spec.config.get("tool", spec.entrypoint))
+            secret = self.security.credential_value(self.context.workspace_id, spec.credential_id)
+            headers = dict(spec.config.get("headers", {}))
+            if secret:
+                headers["Authorization"] = "Bearer " + secret
+            try:
+                data = await call_mcp_http(
+                    url,
+                    tool,
+                    arguments,
+                    self.settings.allowed_hosts,
+                    headers=headers,
+                    timeout=spec.timeout_seconds,
+                    max_response_bytes=spec.max_result_bytes,
+                )
+            except McpError as exc:
+                return ToolResult(success=False, error=str(exc))
+            if secret:
+                data = _redact(data, secret)
+            return ToolResult(success=True, data=data)
+        raise ValueError("Unknown tool adapter")
+
+
+def _redact(value, secret: str):
+    if isinstance(value, str):
+        return value.replace(secret, "[REDACTED]")
+    if isinstance(value, list):
+        return [_redact(item, secret) for item in value]
+    if isinstance(value, dict):
+        return {key: _redact(item, secret) for key, item in value.items()}
+    return value

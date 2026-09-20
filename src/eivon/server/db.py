@@ -242,6 +242,25 @@ class EvaluationSet(Base):
     created_at: Mapped[float] = mapped_column(Float, default=time.time)
 
 
+class EvaluationResult(Base):
+    __tablename__ = "evaluation_results"
+    __table_args__ = (UniqueConstraint("job_id", "case_index"),)
+    job_id: Mapped[str | None] = mapped_column(ForeignKey("jobs.id"), nullable=True, index=True)
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=uid)
+    evaluation_set_id: Mapped[str] = mapped_column(ForeignKey("evaluation_sets.id"), index=True)
+    workspace_id: Mapped[str] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    resource_id: Mapped[str] = mapped_column(String(32), index=True)
+    resource_version: Mapped[int] = mapped_column(Integer)
+    case_index: Mapped[int] = mapped_column(Integer)
+    run_id: Mapped[str | None] = mapped_column(ForeignKey("runs.id"), nullable=True, index=True)
+    input: Mapped[dict] = mapped_column(JSON, default=dict)
+    expected: Mapped[str] = mapped_column(Text, default="")
+    actual: Mapped[str] = mapped_column(Text, default="")
+    score: Mapped[float] = mapped_column(Float, default=0.0)
+    status: Mapped[str] = mapped_column(String(20), default="pending")
+    created_at: Mapped[float] = mapped_column(Float, default=time.time)
+
+
 class LearningItem(Base):
     __tablename__ = "learning_items"
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=uid)
@@ -291,24 +310,9 @@ class Database:
         self.factory = sessionmaker(self.engine, expire_on_commit=False)
 
     def initialize(self) -> None:
-        # Initial schema migration. Future changes require numbered migrations.
-        Base.metadata.create_all(self.engine)
-        from sqlalchemy.exc import IntegrityError
+        from .migrations import upgrade
 
-        try:
-            with self.transaction() as db:
-                if db.get(Meta, "schema_version") is None:
-                    db.add(Meta(key="schema_version", value="1"))
-                if db.get(Meta, "initialized") is None:
-                    db.add(Meta(key="initialized", value="false"))
-        except IntegrityError:
-            # Another process initialized the same instance concurrently.
-            pass
-        with self.transaction() as db:
-            if db.get(Meta, "schema_version").value != "1":
-                raise RuntimeError(
-                    "Unsupported database schema version; run a compatible migration"
-                )
+        upgrade(self)
 
     @contextmanager
     def transaction(self):
