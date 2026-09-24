@@ -100,5 +100,3 @@ See [workspace administration](docs/administration.md) for scope selection, memb
 
 The [evaluation guide](docs/evaluations.md) covers release comparison, human scoring and reviewed Prompt/Skill improvements.
 
-
-
